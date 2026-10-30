@@ -20,5 +20,16 @@
     "reason_text": "no failure",
     "cpu_pct": 23.8,
     "memory_pct": 15.7
+  },
+  {
+    "commit": "19b1d0e91b49830270992afda4cda462a297f3ad",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-10-30T14:43:55Z",
+    "max_users": 256,
+    "reason": "cpu",
+    "reason_text": "CPU saturated",
+    "cpu_pct": 94.5,
+    "memory_pct": 63.0
   }
 ]
