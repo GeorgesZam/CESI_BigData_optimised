@@ -71,6 +71,7 @@
         label: LABELS[engine] || engine,
         data: history
           .filter((entry) => entry.engine === engine)
+          .sort((a, b) => a.date.localeCompare(b.date))
           .map((entry) => ({
             x: entry.date,
             y: entry.max_users,
@@ -79,6 +80,10 @@
           })),
         backgroundColor: COLORS[engine] || "#57606a",
         borderColor: COLORS[engine] || "#57606a",
+        borderWidth: 2,
+        showLine: true,
+        tension: 0.2,
+        fill: false,
         pointRadius: 6,
         pointHoverRadius: 8,
       }));
