@@ -1,0 +1,55 @@
+{
+  "created_at": "2026-10-30 12:49:07 UTC",
+  "commit": "f7df0e78ae729fb25a86a0bc7b4cf1b81750a3cf",
+  "queries_sha256": "921da7f8df3e2195ebc032f23d6bcbef6b76cddb11c9885d2bbefd9ef5f78702",
+  "queries": {
+    "consultations_per_month": {
+      "median_ms": 57.97,
+      "p95_ms": 58.3
+    },
+    "consultations_by_sexe": {
+      "median_ms": 175.14,
+      "p95_ms": 181.26
+    },
+    "top_diagnostics": {
+      "median_ms": 213.14,
+      "p95_ms": 221.92
+    },
+    "consultations_per_specialite": {
+      "median_ms": 428.91,
+      "p95_ms": 433.03
+    },
+    "top_medicaments_prescrits": {
+      "median_ms": 178.35,
+      "p95_ms": 197.24
+    },
+    "patients_with_many_consultations": {
+      "median_ms": 290.4,
+      "p95_ms": 293.75
+    },
+    "consultations_by_mutuelle": {
+      "median_ms": 134.17,
+      "p95_ms": 134.63
+    },
+    "consultation_duration_by_weekday": {
+      "median_ms": 360.72,
+      "p95_ms": 381.78
+    },
+    "patient_by_num_secu": {
+      "median_ms": 13.18,
+      "p95_ms": 13.77
+    },
+    "consultations_of_one_patient": {
+      "median_ms": 35.21,
+      "p95_ms": 35.76
+    },
+    "prescriptions_of_one_consultation": {
+      "median_ms": 28.69,
+      "p95_ms": 28.9
+    },
+    "medicament_search": {
+      "median_ms": 12.63,
+      "p95_ms": 12.73
+    }
+  }
+}
