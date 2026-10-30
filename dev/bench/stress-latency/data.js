@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793367797120,
+  "lastUpdate": 1793368137912,
   "repoUrl": "https://github.com/GeorgesZam/CESI_BigData_optimised",
   "entries": {
     "Stress latency": [
@@ -26,6 +26,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "p95_at_last_level",
             "value": 635.4,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com",
+            "name": "_Georges.Zamfiroiu.AZ"
+          },
+          "committer": {
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com",
+            "name": "_Georges.Zamfiroiu.AZ"
+          },
+          "distinct": true,
+          "id": "40bcc79ce31b85b20a4d26404018fcd5318e7efd",
+          "message": "Make the stress workload deterministic and lengthen the levels",
+          "timestamp": "2026-10-30T14:47:01+01:00",
+          "tree_id": "d2ef877c2a73f79a973b4de482a4808ee167b7a8",
+          "url": "https://github.com/GeorgesZam/CESI_BigData_optimised/commit/40bcc79ce31b85b20a4d26404018fcd5318e7efd"
+        },
+        "date": 1793368137108,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "p95_at_last_level",
+            "value": 712.2,
             "unit": "ms"
           }
         ]
