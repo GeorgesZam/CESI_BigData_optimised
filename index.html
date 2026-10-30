@@ -150,7 +150,7 @@
   }
 
   function drawMetric(canvas, engine, entry, metric) {
-    const points = (entry.levels || [])
+    const points = ((entry && entry.levels) || [])
       .filter((level) => level[metric.key] !== null && level[metric.key] !== undefined)
       .map((level) => ({ x: level.users, y: level[metric.key] }));
     new Chart(canvas, {
