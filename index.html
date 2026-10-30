@@ -37,7 +37,7 @@
 <body>
 <main>
   <h1>Maximum users before saturation</h1>
-  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval.</p>
+  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval. The red dashed line is the acceptance threshold.</p>
   <p class="sub" id="updated"></p>
 
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
@@ -56,6 +56,9 @@
     { key: "postgres", label: "PostgreSQL", color: "#0969da" },
     { key: "duckdb", label: "DuckDB", color: "#bc4c00" },
   ];
+  const LIMITS = { p95_ms: 500, p99_ms: 1000, cpu_pct: 90, memory_pct: 90, error_rate_pct: 1 };
+  const MIN_USERS = 8;
+  const LIMIT_COLOR = "#cf222e";
   const METRICS = [
     { key: "p95_ms", label: "p95 latency", unit: " ms", digits: 0 },
     { key: "p99_ms", label: "p99 latency", unit: " ms", digits: 0 },
@@ -108,6 +111,7 @@
       plugins: {
         legend: { display: false },
         tooltip: {
+          filter: (item) => item.dataset.label !== "limit",
           callbacks: {
             label: (context) => `${context.parsed.y}${unit} at ${context.parsed.x} users`,
           },
@@ -140,12 +144,25 @@
           fill: false,
           pointRadius: 4,
           pointHoverRadius: 6,
+        },
+        {
+          label: `min ${MIN_USERS} users`,
+          data: days.map(() => MIN_USERS),
+          borderColor: LIMIT_COLOR,
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          pointHitRadius: 0,
+          fill: false,
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { filter: (item) => item.dataset.label !== `min ${MIN_USERS} users` },
+        },
         scales: {
           x: { title: { display: true, text: "date" }, ticks: { maxRotation: 0 } },
           y: { beginAtZero: true, max: yMax, title: { display: true, text: "max users" }, ticks: { precision: 0 } },
@@ -158,21 +175,39 @@
     const points = ((entry && entry.levels) || [])
       .filter((level) => level[metric.key] !== null && level[metric.key] !== undefined)
       .map((level) => ({ x: level.users, y: level[metric.key] }));
+    const datasets = [{
+      label: engine.label,
+      data: points,
+      borderColor: engine.color,
+      backgroundColor: engine.color,
+      borderWidth: 2,
+      tension: 0.2,
+      fill: false,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    }];
+
+    const limit = LIMITS[metric.key];
+    if (limit !== undefined && points.length) {
+      const users = points.map((point) => point.x);
+      datasets.push({
+        label: "limit",
+        data: [
+          { x: Math.max(0, Math.min(...users) - 1), y: limit },
+          { x: Math.max(...users) + 1, y: limit },
+        ],
+        borderColor: LIMIT_COLOR,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        pointHitRadius: 0,
+        fill: false,
+      });
+    }
+
     new Chart(canvas, {
       type: "line",
-      data: {
-        datasets: [{
-          label: engine.label,
-          data: points,
-          borderColor: engine.color,
-          backgroundColor: engine.color,
-          borderWidth: 2,
-          tension: 0.2,
-          fill: false,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        }],
-      },
+      data: { datasets },
       options: baseOptions(metric.unit, metric),
     });
   }
