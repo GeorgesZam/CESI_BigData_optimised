@@ -206,11 +206,51 @@ def main() -> int:
             memory_limit_bytes,
         )
         level["verdict"] = failure_reason(level, stress)
+        level["phase"] = "ramp"
         levels.append(level)
         if level["verdict"] != "pass":
             breaking = level
             break
 
+    if breaking is not None:
+        passing = [level for level in levels if level["verdict"] == "pass"]
+        if passing:
+            low = max(level["clients"] for level in passing)
+            high = breaking["clients"]
+            tolerance = stress.get("refine_tolerance_pct", 10) / 100.0
+            max_probes = stress.get("refine_max_probes", 6)
+            probes = 0
+            while high / low > 1 + tolerance and probes < max_probes:
+                probe = int(round((low + high) / 2))
+                if probe <= low or probe >= high:
+                    break
+                level = run_level(
+                    str(args.db),
+                    deck,
+                    probe,
+                    stress.get("refine_duration_seconds", stress["duration_seconds"]),
+                    stress["think_time_seconds"],
+                    args.memory_limit,
+                    memory_limit_bytes,
+                )
+                level["verdict"] = failure_reason(level, stress)
+                level["phase"] = "refine"
+                levels.append(level)
+                probes += 1
+                if level["verdict"] == "pass":
+                    low = probe
+                else:
+                    high = probe
+                    breaking = level
+            candidates = [
+                level
+                for level in levels
+                if level["clients"] == high and level["verdict"] != "pass"
+            ]
+            if candidates:
+                breaking = candidates[0]
+
+    levels.sort(key=lambda level: level["clients"])
     max_clients_ok = max(
         (level["clients"] for level in levels if level["verdict"] == "pass"), default=0
     )
@@ -240,10 +280,27 @@ def main() -> int:
         "engine": args.engine,
         "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "max_users": max_clients_ok,
+        "break_users": breaking["clients"] if breaking else None,
+        "interval_pct": round((breaking["clients"] - max_clients_ok) / max_clients_ok * 100, 1)
+        if breaking and max_clients_ok
+        else None,
         "reason": reference["verdict"] if breaking else "none",
         "reason_text": REASONS[reference["verdict"] if breaking else "none"],
         "cpu_pct": reference.get("cpu_avg_pct"),
         "memory_pct": reference.get("memory_max_pct"),
+        "levels": [
+            {
+                "users": level["clients"],
+                "p95_ms": level["p95_ms"],
+                "p99_ms": level["p99_ms"],
+                "cpu_pct": level.get("cpu_avg_pct"),
+                "memory_pct": level.get("memory_max_pct"),
+                "error_rate_pct": level["error_rate_pct"],
+                "throughput": level["throughput"],
+                "verdict": level["verdict"],
+            }
+            for level in levels
+        ],
     }
     args.history_entry_out.parent.mkdir(parents=True, exist_ok=True)
     args.history_entry_out.write_text(json.dumps(entry, indent=2) + "\n", encoding="utf-8")
