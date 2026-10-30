@@ -7,29 +7,31 @@
   <style>
     :root { color-scheme: light; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 2rem 1rem 3rem; background: #f6f8fa; color: #1f2328; line-height: 1.5; }
-    main { max-width: 72rem; margin: 0 auto; }
+    main { max-width: 78rem; margin: 0 auto; }
     h1 { font-size: 1.6rem; margin: 0 0 0.2rem; }
     p.sub { color: #59636e; margin: 0 0 1.5rem; }
-    h2.section { font-size: 1.15rem; margin: 2rem 0 0.8rem; }
-    .cards, .metrics { display: grid; gap: 1rem; }
-    .cards { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
-    .metrics { grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
-    .card { background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; padding: 1rem 1.1rem 1.2rem; }
-    .card h2 { font-size: 1.05rem; margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-    .card h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
-    .badge { font-size: 1.35rem; font-weight: 700; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .column { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+    .column-head { background: #fff; border: 1px solid #d1d9e0; border-radius: 10px; padding: 1rem 1.1rem; }
+    .column-head h2 { margin: 0; font-size: 1.1rem; }
+    .big { font-size: 2.1rem; font-weight: 700; line-height: 1.1; margin: 0.35rem 0 0.15rem; }
+    .big span { font-size: 0.95rem; font-weight: 500; color: #59636e; }
+    .blocked { color: #59636e; margin: 0; font-size: 0.9rem; }
     .postgres { color: #0969da; }
     .duckdb { color: #bc4c00; }
-    .blocked { color: #59636e; margin: 0.2rem 0 0.6rem; font-size: 0.9rem; }
-    .chart { position: relative; height: 15rem; }
-    .chart.small { height: 11rem; }
-    table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; overflow: hidden; font-size: 0.9rem; margin-top: 2rem; }
+    .card { background: #fff; border: 1px solid #d1d9e0; border-radius: 10px; padding: 0.9rem 1rem 1rem; }
+    .card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; font-size: 0.95rem; margin: 0 0 0.4rem; }
+    .latest { font-size: 1.2rem; font-weight: 700; }
+    .chart { position: relative; height: 11rem; }
+    .chart.small { height: 8.5rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d1d9e0; border-radius: 10px; overflow: hidden; font-size: 0.9rem; margin-top: 2rem; }
     th, td { border-bottom: 1px solid #d1d9e0; padding: 0.5rem 0.65rem; text-align: left; }
     th { background: #f6f8fa; font-weight: 600; }
     td.num, th.num { text-align: right; }
     tr:last-child td { border-bottom: 0; }
     td.change { color: #59636e; }
-    .empty { padding: 3rem 1rem; text-align: center; color: #59636e; background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; }
+    .empty { padding: 3rem 1rem; text-align: center; color: #59636e; background: #fff; border: 1px solid #d1d9e0; border-radius: 10px; }
+    @media (max-width: 900px) { .columns { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -38,29 +40,7 @@
   <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval.</p>
 
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
-
-  <div class="cards" id="cards" hidden>
-    <section class="card">
-      <h2>PostgreSQL <span class="badge postgres" id="postgres-value">–</span></h2>
-      <p class="blocked" id="postgres-reason">no run yet</p>
-      <div class="chart"><canvas id="postgres-chart"></canvas></div>
-    </section>
-    <section class="card">
-      <h2>DuckDB <span class="badge duckdb" id="duckdb-value">–</span></h2>
-      <p class="blocked" id="duckdb-reason">no run yet</p>
-      <div class="chart"><canvas id="duckdb-chart"></canvas></div>
-    </section>
-  </div>
-
-  <h2 class="section" id="metrics-title" hidden>Metrics vs users</h2>
-  <div class="metrics" id="metrics" hidden>
-    <section class="card"><h3>p95 latency (ms)</h3><div class="chart small"><canvas id="metric-p95"></canvas></div></section>
-    <section class="card"><h3>p99 latency (ms)</h3><div class="chart small"><canvas id="metric-p99"></canvas></div></section>
-    <section class="card"><h3>CPU (%)</h3><div class="chart small"><canvas id="metric-cpu"></canvas></div></section>
-    <section class="card"><h3>Memory (%)</h3><div class="chart small"><canvas id="metric-memory"></canvas></div></section>
-    <section class="card"><h3>Errors (%)</h3><div class="chart small"><canvas id="metric-errors"></canvas></div></section>
-    <section class="card"><h3>Throughput (req/s)</h3><div class="chart small"><canvas id="metric-throughput"></canvas></div></section>
-  </div>
+  <div class="columns" id="columns"></div>
 
   <table id="results" hidden>
     <thead>
@@ -71,8 +51,18 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-  const COLORS = { postgres: "#0969da", duckdb: "#bc4c00" };
-  const LABELS = { postgres: "PostgreSQL", duckdb: "DuckDB" };
+  const ENGINES = [
+    { key: "postgres", label: "PostgreSQL", color: "#0969da" },
+    { key: "duckdb", label: "DuckDB", color: "#bc4c00" },
+  ];
+  const METRICS = [
+    { key: "p95_ms", label: "p95 latency", unit: " ms", digits: 0 },
+    { key: "p99_ms", label: "p99 latency", unit: " ms", digits: 0 },
+    { key: "cpu_pct", label: "CPU", unit: "%", digits: 1 },
+    { key: "memory_pct", label: "Memory", unit: "%", digits: 1 },
+    { key: "error_rate_pct", label: "Errors", unit: "%", digits: 1 },
+    { key: "throughput", label: "Throughput", unit: " req/s", digits: 1 },
+  ];
 
   function shortCommit(commit) { return commit ? commit.slice(0, 7) : "local"; }
   function dayOf(entry) { return entry.date.slice(0, 10); }
@@ -92,6 +82,137 @@
       .at(-1);
   }
 
+  function latestValue(entry, key) {
+    if (!entry || !entry.levels) return null;
+    for (let index = entry.levels.length - 1; index >= 0; index -= 1) {
+      const value = entry.levels[index][key];
+      if (value !== null && value !== undefined) return value;
+    }
+    return null;
+  }
+
+  function formatValue(value, metric) {
+    if (value === null || value === undefined) return "–";
+    return `${Number(value).toFixed(metric.digits)}${metric.unit}`;
+  }
+
+  function baseOptions(unit) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.parsed.y}${unit} at ${context.parsed.x} users`,
+          },
+        },
+      },
+      scales: {
+        x: { type: "linear", beginAtZero: true, title: { display: true, text: "users" }, ticks: { precision: 0 } },
+        y: { beginAtZero: true, title: { display: true, text: unit } },
+      },
+    };
+  }
+
+  function drawUsers(canvas, engine, history, yMax) {
+    const days = [...new Set(history.map(dayOf))].sort();
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: days,
+        datasets: [{
+          label: engine.label,
+          data: days.map((day) => {
+            const entry = entryFor(history, engine.key, day);
+            return entry ? entry.max_users : null;
+          }),
+          borderColor: engine.color,
+          backgroundColor: engine.color,
+          borderWidth: 2,
+          spanGaps: true,
+          tension: 0.2,
+          fill: false,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { title: { display: true, text: "date" }, ticks: { maxRotation: 0 } },
+          y: { beginAtZero: true, max: yMax, title: { display: true, text: "max users" }, ticks: { precision: 0 } },
+        },
+      },
+    });
+  }
+
+  function drawMetric(canvas, engine, entry, metric) {
+    const points = (entry.levels || [])
+      .filter((level) => level[metric.key] !== null && level[metric.key] !== undefined)
+      .map((level) => ({ x: level.users, y: level[metric.key] }));
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        datasets: [{
+          label: engine.label,
+          data: points,
+          borderColor: engine.color,
+          backgroundColor: engine.color,
+          borderWidth: 2,
+          tension: 0.2,
+          fill: false,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        }],
+      },
+      options: baseOptions(metric.unit),
+    });
+  }
+
+  function buildColumn(engine, history, yMax) {
+    const column = document.createElement("section");
+    column.className = "column";
+    const latest = latestFor(history, engine.key);
+    if (!latest) {
+      column.innerHTML = `<div class="column-head"><h2 class="${engine.key}">${engine.label}</h2><p class="blocked">no run yet</p></div>`;
+      return column;
+    }
+
+    const breakText = latest.break_users ? ` at ${latest.break_users} users` : "";
+    const reason = latest.reason === "none"
+      ? "no failure within the ramp"
+      : `blocked by ${latest.reason_text || latest.reason}${breakText}`;
+
+    column.innerHTML = `
+      <header class="column-head">
+        <h2 class="${engine.key}">${engine.label}</h2>
+        <div class="big ${engine.key}">${latest.max_users}<span> users</span></div>
+        <p class="blocked">${reason}</p>
+      </header>
+      <div class="card">
+        <h3>Max users over time</h3>
+        <div class="chart"><canvas></canvas></div>
+      </div>`;
+
+    drawUsers(column.querySelector("canvas"), engine, history, yMax);
+
+    const withLevels = latestFor(history, engine.key, true);
+    METRICS.forEach((metric) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <h3>${metric.label}<span class="latest ${engine.key}">${formatValue(latestValue(withLevels, metric.key), metric)}</span></h3>
+        <div class="chart small"><canvas></canvas></div>`;
+      column.appendChild(card);
+      drawMetric(card.querySelector("canvas"), engine, withLevels, metric);
+    });
+
+    return column;
+  }
+
   async function main() {
     let history = [];
     try {
@@ -106,132 +227,22 @@
       return;
     }
 
-    document.getElementById("cards").hidden = false;
     document.getElementById("results").hidden = false;
-
     const body = document.querySelector("#results tbody");
     history.slice().sort((a, b) => b.date.localeCompare(a.date)).forEach((entry) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.date.replace("T", " ").replace("Z", "")}</td>
-        <td class="${entry.engine}">${LABELS[entry.engine] || entry.engine}</td>
+        <td class="${entry.engine}">${entry.engine === "postgres" ? "PostgreSQL" : "DuckDB"}</td>
         <td class="num">${entry.max_users}</td>
         <td>${entry.reason_text || entry.reason || ""}</td>
         <td class="change">${entry.commit_message || shortCommit(entry.commit)}</td>`;
       body.appendChild(row);
     });
 
-    const days = [...new Set(history.map(dayOf))].sort();
-    const maxUsers = Math.max(...history.map((entry) => entry.max_users));
-    const yMax = niceMax(maxUsers);
-
-    function drawUsers(engine) {
-      const latest = latestFor(history, engine);
-      if (!latest) return;
-      document.getElementById(`${engine}-value`).textContent = `${latest.max_users} users`;
-      const breakText = latest.break_users ? ` at ${latest.break_users} users` : "";
-      document.getElementById(`${engine}-reason`).textContent =
-        latest.reason === "none"
-          ? "no failure within the ramp"
-          : `blocked by ${latest.reason_text || latest.reason}${breakText}`;
-
-      new Chart(document.getElementById(`${engine}-chart`), {
-        type: "line",
-        data: {
-          labels: days,
-          datasets: [{
-            label: LABELS[engine],
-            data: days.map((day) => {
-              const entry = entryFor(history, engine, day);
-              return entry ? entry.max_users : null;
-            }),
-            borderColor: COLORS[engine],
-            backgroundColor: COLORS[engine],
-            borderWidth: 2,
-            spanGaps: true,
-            tension: 0.2,
-            fill: false,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  const entry = entryFor(history, engine, context.label);
-                  if (!entry) return "";
-                  const message = entry.commit_message ? ` — ${entry.commit_message}` : "";
-                  return `${entry.max_users} users (${entry.reason_text || entry.reason})${message}`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: { title: { display: true, text: "date" }, ticks: { maxRotation: 0 } },
-            y: { beginAtZero: true, max: yMax, title: { display: true, text: "max users" }, ticks: { precision: 0 } },
-          },
-        },
-      });
-    }
-
-    drawUsers("postgres");
-    drawUsers("duckdb");
-
-    const engines = ["postgres", "duckdb"].filter((engine) => latestFor(history, engine, true));
-    if (!engines.length) return;
-
-    document.getElementById("metrics-title").hidden = false;
-    document.getElementById("metrics").hidden = false;
-
-    function drawMetric(canvasId, key, unit) {
-      const datasets = engines.map((engine) => {
-        const entry = latestFor(history, engine, true);
-        return {
-          label: LABELS[engine],
-          data: entry.levels.map((level) => ({ x: level.users, y: level[key] })),
-          borderColor: COLORS[engine],
-          backgroundColor: COLORS[engine],
-          borderWidth: 2,
-          tension: 0.2,
-          fill: false,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        };
-      });
-
-      new Chart(document.getElementById(canvasId), {
-        type: "line",
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: "bottom", labels: { boxWidth: 10 } },
-            tooltip: {
-              callbacks: {
-                label: (context) => `${context.dataset.label}: ${context.parsed.y}${unit} at ${context.parsed.x} users`,
-              },
-            },
-          },
-          scales: {
-            x: { type: "linear", title: { display: true, text: "users" }, beginAtZero: true },
-            y: { beginAtZero: true, title: { display: true, text: unit } },
-          },
-        },
-      });
-    }
-
-    drawMetric("metric-p95", "p95_ms", " ms");
-    drawMetric("metric-p99", "p99_ms", " ms");
-    drawMetric("metric-cpu", "cpu_pct", "%");
-    drawMetric("metric-memory", "memory_pct", "%");
-    drawMetric("metric-errors", "error_rate_pct", "%");
-    drawMetric("metric-throughput", "throughput", " req/s");
+    const yMax = niceMax(Math.max(...history.map((entry) => entry.max_users)));
+    const columns = document.getElementById("columns");
+    ENGINES.forEach((engine) => columns.appendChild(buildColumn(engine, history, yMax)));
   }
 
   main();
