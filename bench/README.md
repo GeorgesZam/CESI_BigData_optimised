@@ -17,7 +17,8 @@ restored and measured.
 - `stress.py` — concurrency ramp, failure detection, stress report.
 - `thresholds.json` — acceptance criteria and stress settings.
 - `baseline.json` — reference timings recorded on GitHub Actions.
-- `requirements.txt` — Python dependency (`psycopg`).
+- `publish_history.py` — appends a run to the gh-pages history.
+- `requirements.txt` — Python dependencies (`psycopg`, `psutil`).
 
 ## GitHub Actions
 
@@ -79,16 +80,19 @@ pg_restore -h localhost -U postgres -d cesi --no-owner --no-privileges \
 | Non-empty results | at least one row per query |
 | Database size | at most 400 MB |
 | Dump size | at most 50 MB |
+| CPU | below 90% |
+| Memory | below 90% |
+| Max users | at least 8 within the SLA |
 
 Budgets come from the stored baseline, so they tighten as the database improves. The
 SQL `-- budget_ms` line is only a fallback when no baseline exists. `--strict` makes
 the job fail on any FAIL; without it the job reports and stays green.
 
-## Stress test
+## What a user does
 
-The stress job ramps 1, 4, 8, 16, 32 and 64 concurrent clients, 15 seconds per
-level after a 5-second warm-up. Each client runs a weighted mix of the queries from a
-fixed deck, so the mix is identical from one run to the next:
+One user sends **one request per second** (60 requests per minute), drawing from a
+fixed weighted deck. The deck is shuffled once with a fixed seed, so every run sends
+the same mix:
 
 | Query | Weight |
 | --- | ---: |
@@ -101,32 +105,30 @@ fixed deck, so the mix is identical from one run to the next:
 | `consultations_by_sexe` | 2 |
 | `consultations_per_specialite` | 1 |
 
-The ramp stops at the first failure:
+The ramp runs 1, 2, 4, 8, 16, 32 and 64 users, 20 seconds per level after a 3-second
+warm-up. It stops at the first level that leaves the SLA:
 
-- the server no longer answers (crash, OOM kill, refused connection);
+- the server stops answering (crash, OOM kill, refused connection);
+- memory reaches 90% of the container limit;
+- CPU stays at or above 90%;
 - the error rate exceeds 1%;
-- p95 exceeds 500 ms or p99 exceeds 1000 ms;
-- or every level passed.
+- p95 exceeds 500 ms or p99 exceeds 1000 ms.
 
-The report shows transactions, throughput, p50/p95/p99/max, errors and the breaking
-point. The test passes when at least 8 clients stay within the SLA (`min_clients`).
-`--strict` makes the job fail when it does not.
+The report leads with the breaking point and the reason, for example
+`Breaks at 4 users — response time too slow (p95)`. The test passes when at least 8
+users stay within the SLA (`min_clients`). `--strict` makes the job fail otherwise.
 
-The client runs on the same 4 vCPU machine as PostgreSQL, so at high concurrency the
-load generator competes with the database for CPU. The breaking point is a lower
-bound.
+The load generator runs on the same 4 vCPU machine as the database, so at high
+concurrency it competes for CPU. The breaking point is a lower bound.
 
-## Graphs
+## Single page
 
-`github-action-benchmark` pushes history to the `gh-pages` branch and renders charts:
+`gh-pages/index.html` shows one chart: the maximum number of users per run, for
+PostgreSQL and DuckDB, plus a table with the blocking reason. `bench/publish_history.py`
+appends each run to `gh-pages/history.json`.
 
-- `dev/bench/latency/` — total and per-query median over commits.
-- `dev/bench/stress-latency/` — p95, p99 and error rate at 8 clients.
-- `dev/bench/stress-throughput/` — throughput at 8 clients and max clients within SLA.
-
-Enable GitHub Pages once (Settings → Pages → branch `gh-pages`, folder `/`). The
-charts then live at `https://<owner>.github.io/<repo>/dev/bench/latency/` and the two
-other paths.
+- Page: `https://<owner>.github.io/<repo>/`
+- The page is static; it costs no Actions minutes.
 
 ## Tracking progress
 
