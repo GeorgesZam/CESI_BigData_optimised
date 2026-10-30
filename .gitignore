@@ -11,3 +11,4 @@ DATA 2024/**
 bench/action*.json
 bench/stress.json
 bench/stress-report.md
+rust/target/
