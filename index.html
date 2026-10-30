@@ -31,13 +31,16 @@
     <tbody></tbody>
   </table>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script>
     const COLORS = { postgres: "#0969da", duckdb: "#bc4c00" };
     const LABELS = { postgres: "PostgreSQL", duckdb: "DuckDB" };
 
     function shortCommit(commit) {
       return commit ? commit.slice(0, 7) : "local";
+    }
+
+    function dayOf(entry) {
+      return entry.date.slice(0, 10);
     }
 
     async function main() {
@@ -66,22 +69,26 @@
         body.appendChild(row);
       });
 
+      const days = [...new Set(history.map(dayOf))].sort();
       const engines = [...new Set(history.map((entry) => entry.engine))];
+
+      function entryFor(engine, day) {
+        return history
+          .filter((entry) => entry.engine === engine && dayOf(entry) === day)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .at(-1);
+      }
+
       const datasets = engines.map((engine) => ({
         label: LABELS[engine] || engine,
-        data: history
-          .filter((entry) => entry.engine === engine)
-          .sort((a, b) => a.date.localeCompare(b.date))
-          .map((entry) => ({
-            x: entry.date,
-            y: entry.max_users,
-            reason: entry.reason_text || entry.reason,
-            commit: shortCommit(entry.commit),
-          })),
+        data: days.map((day) => {
+          const entry = entryFor(engine, day);
+          return entry ? entry.max_users : null;
+        }),
         backgroundColor: COLORS[engine] || "#57606a",
         borderColor: COLORS[engine] || "#57606a",
         borderWidth: 2,
-        showLine: true,
+        spanGaps: true,
         tension: 0.2,
         fill: false,
         pointRadius: 6,
@@ -89,31 +96,24 @@
       }));
 
       new Chart(document.getElementById("chart"), {
-        type: "scatter",
-        data: { datasets },
+        type: "line",
+        data: { labels: days, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: {
-              type: "time",
-              time: { tooltipFormat: "yyyy-MM-dd HH:mm" },
-              title: { display: true, text: "date" },
-              ticks: { maxRotation: 0, autoSkip: true },
-            },
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: "max users" },
-              ticks: { precision: 0 },
-            },
+            x: { title: { display: true, text: "date" }, ticks: { maxRotation: 0 } },
+            y: { beginAtZero: true, title: { display: true, text: "max users" }, ticks: { precision: 0 } },
           },
           plugins: {
             legend: { position: "bottom" },
             tooltip: {
               callbacks: {
                 label: (context) => {
-                  const point = context.raw;
-                  return `${context.dataset.label}: ${point.y} users (${point.reason}) — ${point.commit}`;
+                  const engine = engines[context.datasetIndex];
+                  const entry = entryFor(engine, context.label);
+                  if (!entry) return "";
+                  return `${context.dataset.label}: ${entry.max_users} users (${entry.reason_text || entry.reason}) — ${entry.date.slice(11, 16)} ${shortCommit(entry.commit)}`;
                 },
               },
             },
