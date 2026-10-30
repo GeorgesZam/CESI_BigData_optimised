@@ -8,7 +8,8 @@
     "reason": "p95",
     "reason_text": "response time too slow (p95)",
     "cpu_pct": 82.0,
-    "memory_pct": 18.2
+    "memory_pct": 18.2,
+    "commit_message": "Remove gh-pages artifacts from main [skip ci]"
   },
   {
     "commit": "b04eceb2fa08e9a7bba66077b88363c9cb0abbca",
@@ -19,7 +20,8 @@
     "reason": "none",
     "reason_text": "no failure",
     "cpu_pct": 23.8,
-    "memory_pct": 15.7
+    "memory_pct": 15.7,
+    "commit_message": "Add the DuckDB max-users test [skip ci]"
   },
   {
     "commit": "19b1d0e91b49830270992afda4cda462a297f3ad",
@@ -30,7 +32,8 @@
     "reason": "cpu",
     "reason_text": "CPU saturated",
     "cpu_pct": 94.5,
-    "memory_pct": 63.0
+    "memory_pct": 63.0,
+    "commit_message": "Extend the DuckDB ramp to 2048 users [skip ci]"
   },
   {
     "commit": "8ddb350c9a52622ad677b7523d3f3f1426760894",
@@ -41,6 +44,7 @@
     "reason": "p95",
     "reason_text": "response time too slow (p95)",
     "cpu_pct": 70.8,
-    "memory_pct": 17.3
+    "memory_pct": 17.3,
+    "commit_message": "Align the ramp levels with the optimized branch [skip ci]"
   }
 ]

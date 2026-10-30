@@ -17,6 +17,7 @@
     .postgres { color: #0969da; font-weight: 600; }
     .duckdb { color: #bc4c00; font-weight: 600; }
     .empty { padding: 2rem; text-align: center; color: #59636e; }
+    td.change { color: #59636e; }
   </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
   <table id="results" hidden>
     <thead>
-      <tr><th>Date</th><th>Engine</th><th class="num">Max users</th><th>Blocking reason</th></tr>
+      <tr><th>Date</th><th>Engine</th><th class="num">Max users</th><th>Blocking reason</th><th>Change</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -65,7 +66,8 @@
           <td>${entry.date.replace("T", " ").replace("Z", "")}</td>
           <td class="${entry.engine}">${LABELS[entry.engine] || entry.engine}</td>
           <td class="num">${entry.max_users}</td>
-          <td>${entry.reason_text || entry.reason || ""}</td>`;
+          <td>${entry.reason_text || entry.reason || ""}</td>
+          <td class="change">${entry.commit_message || shortCommit(entry.commit)}</td>`;
         body.appendChild(row);
       });
 
@@ -113,7 +115,8 @@
                   const engine = engines[context.datasetIndex];
                   const entry = entryFor(engine, context.label);
                   if (!entry) return "";
-                  return `${context.dataset.label}: ${entry.max_users} users (${entry.reason_text || entry.reason}) — ${entry.date.slice(11, 16)} ${shortCommit(entry.commit)}`;
+                  const message = entry.commit_message ? ` — ${entry.commit_message}` : "";
+                  return `${context.dataset.label}: ${entry.max_users} users (${entry.reason_text || entry.reason}) — ${entry.date.slice(11, 16)} ${shortCommit(entry.commit)}${message}`;
                 },
               },
             },
