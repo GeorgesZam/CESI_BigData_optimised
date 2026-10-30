@@ -49,6 +49,82 @@ S3_PRICES = {
 }
 
 
+def load_thresholds(path: Path) -> dict:
+    if not path.exists():
+        raise SystemExit(f"thresholds file not found: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def effective_budget_ms(row: dict, comparison: dict | None, latency: dict) -> tuple[int | None, str]:
+    if comparison is not None:
+        baseline = next(
+            (item["baseline_ms"] for item in comparison["rows"] if item["name"] == row["name"]),
+            None,
+        )
+        if baseline is not None:
+            step = latency["budget_round_ms"]
+            value = baseline * latency["budget_factor"]
+            value = max(latency["budget_floor_ms"], math.ceil(value / step) * step)
+            return int(value), "baseline"
+    return row["budget_ms"], "sql"
+
+
+def acceptance_criteria(
+    meta: dict, results: list[dict], comparison: dict | None, thresholds: dict
+) -> list[dict]:
+    latency = thresholds["latency"]
+    over = [
+        row["name"]
+        for row in results
+        if row.get("effective_budget_ms") and row["median_ms"] > row["effective_budget_ms"]
+    ]
+    criteria = [
+        {
+            "criterion": "Latency budget",
+            "threshold": f"{latency['budget_factor']}x baseline, floor {latency['budget_floor_ms']} ms",
+            "measured": f"{len(results) - len(over)}/{len(results)} within budget",
+            "pass": not over,
+        },
+        {
+            "criterion": "Non-empty results",
+            "threshold": ">= 1 row per query",
+            "measured": f"{sum(1 for row in results if row['rows'] > 0)}/{len(results)}",
+            "pass": all(row["rows"] > 0 for row in results),
+        },
+    ]
+    if comparison is not None:
+        regressions = comparison["regressions"]
+        criteria.append(
+            {
+                "criterion": "Regression vs baseline",
+                "threshold": f"<= +{latency['regression_tolerance_pct']}% and +{latency['regression_noise_floor_ms']} ms",
+                "measured": f"{len(regressions)} regression(s)",
+                "pass": not regressions,
+            }
+        )
+    db_mb = meta["db"]["database_size_bytes"] / 1e6
+    criteria.append(
+        {
+            "criterion": "Database size",
+            "threshold": f"<= {thresholds['size']['max_database_mb']} MB",
+            "measured": f"{db_mb:.0f} MB",
+            "pass": db_mb <= thresholds["size"]["max_database_mb"],
+        }
+    )
+    dump_size = (meta.get("dump") or {}).get("size_bytes")
+    if dump_size:
+        dump_mb = dump_size / 1e6
+        criteria.append(
+            {
+                "criterion": "Dump size",
+                "threshold": f"<= {thresholds['size']['max_dump_mb']} MB",
+                "measured": f"{dump_mb:.0f} MB",
+                "pass": dump_mb <= thresholds["size"]["max_dump_mb"],
+            }
+        )
+    return criteria
+
+
 def load_queries(folder: Path) -> list[dict]:
     if not folder.is_dir():
         raise SystemExit(f"{folder} is not a directory")
@@ -195,9 +271,10 @@ def fmt_size(value: int | None) -> str:
 
 
 def status_for(row: dict) -> str:
-    if row["budget_ms"] is None:
+    budget = row.get("effective_budget_ms", row["budget_ms"])
+    if budget is None:
         return "no budget"
-    return "ok" if row["median_ms"] <= row["budget_ms"] else "over budget"
+    return "ok" if row["median_ms"] <= budget else "over budget"
 
 
 def compare_to_baseline(
@@ -294,6 +371,8 @@ def render_report(
     results: list[dict],
     comparison: dict | None,
     baseline_status: str,
+    criteria: list[dict],
+    thresholds: dict,
 ) -> str:
     host = meta["host"]
     settings = meta["db"]["settings"]
@@ -314,10 +393,18 @@ def render_report(
 
     lines.append("## Measurements (database as restored, no modification)")
     lines.append("")
+    latency = thresholds["latency"]
+    lines.append(
+        f"Budgets are {latency['budget_factor']}x the stored baseline median, rounded up to "
+        f"{latency['budget_round_ms']} ms with a floor of {latency['budget_floor_ms']} ms. "
+        "The SQL budget applies when no baseline exists."
+    )
+    lines.append("")
     lines.append("| Query | Median (ms) | p95 (ms) | Rows | Budget (ms) | Status | Seq scans |")
     lines.append("| --- | ---: | ---: | ---: | ---: | --- | --- |")
     for row in results:
-        budget = row["budget_ms"] if row["budget_ms"] is not None else "-"
+        budget = row.get("effective_budget_ms", row["budget_ms"])
+        budget = budget if budget is not None else "-"
         seq = ", ".join(row["plan_seq_scans"]) if row["plan_seq_scans"] else "none"
         lines.append(
             f"| `{row['name']}` | {fmt_ms(row['median_ms'])} | {fmt_ms(row['p95_ms'])} | {row['rows']} | "
@@ -355,6 +442,17 @@ def render_report(
             lines.append("")
             lines.append("Regressions: " + ", ".join(f"`{name}`" for name in comparison["regressions"]))
         lines.append("")
+
+    verdict = all(item["pass"] for item in criteria)
+    lines += ["## Acceptance criteria", "",
+              "| Criterion | Threshold | Measured | Verdict |",
+              "| --- | --- | --- | --- |"]
+    for item in criteria:
+        lines.append(
+            f"| {item['criterion']} | {item['threshold']} | {item['measured']} | "
+            f"{'PASS' if item['pass'] else 'FAIL'} |"
+        )
+    lines += ["", f"Overall: **{'PASS' if verdict else 'FAIL'}**", ""]
 
     lines += ["## Resources", "",
               "| Resource | Value |", "| --- | --- |",
@@ -396,13 +494,14 @@ def main() -> int:
     parser.add_argument("--baseline", type=Path, default=None, help="stored baseline to compare against")
     parser.add_argument("--write-baseline", type=Path, default=None, help="record the current run as the new baseline")
     parser.add_argument("--commit", default=None, help="commit SHA stored in the baseline")
-    parser.add_argument("--tolerance", type=float, default=0.25, help="relative change allowed before flagging a regression")
-    parser.add_argument("--noise-floor-ms", type=float, default=2.0, help="absolute change below this is ignored")
-    parser.add_argument("--strict", action="store_true", help="exit non-zero on a budget overrun or a regression")
+    parser.add_argument("--thresholds", type=Path, default=Path("bench/thresholds.json"), help="acceptance thresholds")
+    parser.add_argument("--action-out", type=Path, default=Path("bench/action.json"), help="JSON for github-action-benchmark")
+    parser.add_argument("--strict", action="store_true", help="exit non-zero when an acceptance criterion fails")
     args = parser.parse_args()
 
     queries = load_queries(args.queries)
     fingerprint = queries_fingerprint(args.queries)
+    thresholds = load_thresholds(args.thresholds)
     dump_size = args.dump.stat().st_size if args.dump and args.dump.exists() else None
     meta: dict = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -435,20 +534,43 @@ def main() -> int:
                 baseline_status = "changed"
             else:
                 baseline_status = "ok"
-                comparison = compare_to_baseline(results, document, args.tolerance, args.noise_floor_ms)
+                comparison = compare_to_baseline(
+                    results,
+                    document,
+                    thresholds["latency"]["regression_tolerance_pct"] / 100.0,
+                    thresholds["latency"]["regression_noise_floor_ms"],
+                )
 
-    report = render_report(meta, results, comparison, baseline_status)
+    for row in results:
+        row["effective_budget_ms"], row["budget_source"] = effective_budget_ms(
+            row, comparison, thresholds["latency"]
+        )
+    criteria = acceptance_criteria(meta, results, comparison, thresholds)
+
+    report = render_report(meta, results, comparison, baseline_status, criteria, thresholds)
     args.report_out.parent.mkdir(parents=True, exist_ok=True)
     args.report_out.write_text(report, encoding="utf-8")
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(
         json.dumps(
-            {"meta": meta, "results": results, "comparison": comparison},
+            {"meta": meta, "results": results, "comparison": comparison, "criteria": criteria},
             indent=2,
             ensure_ascii=False,
         ),
         encoding="utf-8",
     )
+    action_entries = [
+        {
+            "name": "total_median_ms",
+            "unit": "ms",
+            "value": round(sum(row["median_ms"] for row in results), 2),
+        }
+    ] + [
+        {"name": f"median_{row['name']}", "unit": "ms", "value": row["median_ms"]}
+        for row in results
+    ]
+    args.action_out.parent.mkdir(parents=True, exist_ok=True)
+    args.action_out.write_text(json.dumps(action_entries, indent=2) + "\n", encoding="utf-8")
     if args.write_baseline is not None:
         document = build_baseline_document(meta, results, fingerprint, args.commit)
         args.write_baseline.parent.mkdir(parents=True, exist_ok=True)
@@ -456,18 +578,14 @@ def main() -> int:
             json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
+    failed = [item["criterion"] for item in criteria if not item["pass"]]
     print(report)
-    print(f"report: {args.report_out}\njson:   {args.json_out}")
+    print(f"report: {args.report_out}\njson:   {args.json_out}\naction: {args.action_out}")
+    print(f"acceptance: {'PASS' if not failed else 'FAIL'}")
     if args.write_baseline is not None:
         print(f"baseline: {args.write_baseline}")
-
-    over = [row for row in results if row["budget_ms"] and row["median_ms"] > row["budget_ms"]]
-    regressions = comparison["regressions"] if comparison else []
-    if args.strict and (over or regressions):
-        if over:
-            print("\nBudget exceeded:", ", ".join(row["name"] for row in over), file=sys.stderr)
-        if regressions:
-            print("Regressed against the baseline:", ", ".join(regressions), file=sys.stderr)
+    if args.strict and failed:
+        print("Failed criteria: " + ", ".join(failed), file=sys.stderr)
         return 1
     return 0
 

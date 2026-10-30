@@ -43,8 +43,9 @@ stands, so each later change can be judged on measured numbers.
 
 ## Benchmark
 
-`.github/workflows/db-performance.yml` starts a PostgreSQL 14 service, restores the
-dump, and runs `bench/benchmark.py`. The job:
+`.github/workflows/db-performance.yml` runs two jobs against a PostgreSQL 14 service.
+
+**Latency benchmark** (`bench/benchmark.py`):
 
 - runs the 12 queries from the `queries/` folder: aggregations, multi-table joins,
   point lookups on unindexed keys, and a free-text search;
@@ -52,20 +53,32 @@ dump, and runs `bench/benchmark.py`. The job:
   sequential scans chosen by the planner;
 - compares the run to `bench/baseline.json`, so each iteration shows whether the
   database got faster or slower;
+- checks the acceptance criteria in `bench/thresholds.json` and prints PASS/FAIL;
 - reports runner resources (vCPU, RAM, disk), database and dump size, and a monthly
   Amazon S3 storage cost estimate;
 - publishes the report in the Actions job summary and as an artifact.
 
-The benchmark **does not optimize anything**: it creates no index, rewrites no query
-and changes no data. It only measures the database as restored, plus a
-`VACUUM (ANALYZE)` to give the planner real statistics.
+**Concurrency stress test** (`bench/stress.py`):
+
+- ramps 1, 4, 8, 16, 32 and 64 clients on a weighted query mix;
+- stops at the first failure: server unreachable, error rate above 1%, p95 above
+  500 ms or p99 above 1000 ms;
+- reports throughput, p50/p95/p99, errors and the breaking point;
+- requires at least 8 clients within the SLA.
+
+Both jobs **do not optimize anything**: they create no index, rewrite no query and
+change no data. They only measure the database as restored, plus a
+`VACUUM (ANALYZE)` to give the planner real statistics. History is published to
+GitHub Pages through `gh-pages`, one chart per series.
 
 ## Repository layout
 
 ```
-.github/workflows/db-performance.yml   CI: restore, measure, publish the report
+.github/workflows/db-performance.yml   CI: latency benchmark and stress test
 queries/                               one SQL file per measured query
-bench/benchmark.py                     measurement script
+bench/benchmark.py                     latency measurement and acceptance criteria
+bench/stress.py                        concurrency ramp and failure detection
+bench/thresholds.json                  acceptance criteria and stress settings
 bench/baseline.json                    reference timings (created by the first manual run)
 bench/README.md                        usage and methodology
 reports/latest.md                      report committed with each new baseline
@@ -82,7 +95,10 @@ pg_restore --no-owner --no-privileges -d cesi "DATA 2024/BDD PostgreSQL/DATA2023
 
 uv run --with "psycopg[binary]" python bench/benchmark.py \
   --dsn "postgresql://localhost:5432/cesi" \
-  --repeats 5
+  --repeats 3
+
+uv run --with "psycopg[binary]" python bench/stress.py \
+  --dsn "postgresql://localhost:5432/cesi"
 ```
 
 ## Tracking progress
@@ -94,6 +110,5 @@ uv run --with "psycopg[binary]" python bench/benchmark.py \
 3. When a change is a real improvement, run again with `update_baseline = true`.
    The commit updates `bench/baseline.json` and `reports/latest.md`, so the history
    of each step stays in Git.
-
-The current benchmark measures latency and data size one query at a time. A parallel
-load test is the next step to measure throughput for many concurrent users.
+4. The charts on GitHub Pages show latency, stress p95/p99 and throughput per commit,
+   so the effect of each change is visible over time.

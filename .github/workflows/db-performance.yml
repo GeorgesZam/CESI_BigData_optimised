@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       enforce_budget:
-        description: Fail the job when a query exceeds its time budget or regresses
+        description: Fail the job when an acceptance criterion fails
         type: boolean
         default: false
       update_baseline:
@@ -21,15 +21,16 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
 
 env:
   DUMP_PATH: "DATA 2024/BDD PostgreSQL/DATA2023"
 
 jobs:
   benchmark:
-    name: Restore and benchmark
+    name: Latency benchmark
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 10
 
     services:
       postgres:
@@ -59,9 +60,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: bench/requirements.txt
 
       - name: Install benchmark dependencies
-        run: pip install "psycopg[binary]"
+        run: pip install -r bench/requirements.txt
 
       - name: Locate the database dump
         env:
@@ -85,7 +88,7 @@ jobs:
       - name: Restore the dump
         run: |
           set -euo pipefail
-          pg_restore --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
+          pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
           psql -X -c 'select count(*) as consultations from public."Consultation";'
 
       - name: Run the benchmark
@@ -94,10 +97,11 @@ jobs:
           args=(
             --dsn "$DATABASE_URL"
             --dump "$DUMP_FILE"
-            --repeats 5
+            --repeats 3
             --baseline bench/baseline.json
             --json-out bench/results.json
             --report-out bench/report.md
+            --action-out bench/action.json
           )
           if [ "${{ inputs.update_baseline }}" = "true" ]; then
             args+=(--write-baseline bench/baseline.json --commit "$GITHUB_SHA")
@@ -113,6 +117,22 @@ jobs:
           if [ -f bench/report.md ]; then
             cat bench/report.md >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Publish latency history to gh-pages
+        if: success() && github.event_name != 'pull_request' 
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Database benchmark
+          tool: customSmallerIsBetter
+          output-file-path: bench/action.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/latency
+          comment-on-alert: true
+          alert-threshold: "115%"
+          fail-on-alert: false
+          summary-always: true
 
       - name: Record the new baseline
         if: github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref == 'refs/heads/main'
@@ -138,5 +158,138 @@ jobs:
           path: |
             bench/report.md
             bench/results.json
+            bench/action.json
             bench/baseline.json
+          if-no-files-found: warn
+
+  stress:
+    name: Concurrency stress
+    needs: benchmark
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cesi
+        ports:
+          - 5432:5432
+        options: >-
+          --memory=2g
+          --memory-swap=2g
+          --health-cmd "pg_isready -U postgres -d cesi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: cesi
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: bench/requirements.txt
+
+      - name: Install benchmark dependencies
+        run: pip install -r bench/requirements.txt
+
+      - name: Locate the database dump
+        env:
+          DUMP_URL: ${{ vars.DUMP_URL }}
+        run: |
+          set -euo pipefail
+          dump="$RUNNER_TEMP/cesi.dump"
+          if [ -n "${DUMP_URL:-}" ]; then
+            curl -fsSL "$DUMP_URL" -o "$dump"
+          elif [ -f "$DUMP_PATH" ]; then
+            cp "$DUMP_PATH" "$dump"
+          else
+            echo "::error::No dump found. Commit '$DUMP_PATH' or set the DUMP_URL repository variable."
+            exit 1
+          fi
+          echo "DUMP_FILE=$dump" >> "$GITHUB_ENV"
+
+      - name: Restore the dump
+        run: |
+          set -euo pipefail
+          pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
+
+      - name: Run the stress test
+        env:
+          PGOPTIONS: "-c work_mem=16MB"
+        run: |
+          set -euo pipefail
+          extra=""
+          if [ "${{ inputs.enforce_budget }}" = "true" ]; then
+            extra="--strict"
+          fi
+          python bench/stress.py \
+            --dsn "$DATABASE_URL" \
+            --thresholds bench/thresholds.json \
+            --md-out bench/stress-report.md \
+            --json-out bench/stress.json \
+            --action-latency-out bench/action-stress-latency.json \
+            --action-throughput-out bench/action-stress-throughput.json $extra
+
+      - name: Publish the report to the job summary
+        if: always()
+        run: |
+          if [ -f bench/stress-report.md ]; then
+            cat bench/stress-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publish stress latency to gh-pages
+        if: success() && github.event_name != 'pull_request' 
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Stress latency
+          tool: customSmallerIsBetter
+          output-file-path: bench/action-stress-latency.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/stress-latency
+          comment-on-alert: true
+          alert-threshold: "115%"
+          fail-on-alert: false
+          summary-always: true
+
+      - name: Publish stress throughput to gh-pages
+        if: success() && github.event_name != 'pull_request' 
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Stress throughput
+          tool: customBiggerIsBetter
+          output-file-path: bench/action-stress-throughput.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/stress-throughput
+          comment-on-alert: true
+          alert-threshold: "85%"
+          fail-on-alert: false
+          summary-always: true
+
+      - name: Upload the stress report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-stress-report
+          path: |
+            bench/stress-report.md
+            bench/stress.json
+            bench/action-stress-latency.json
+            bench/action-stress-throughput.json
           if-no-files-found: warn

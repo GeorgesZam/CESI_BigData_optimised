@@ -1,0 +1,40 @@
+{
+  "latency": {
+    "budget_factor": 2.5,
+    "budget_floor_ms": 100,
+    "budget_round_ms": 50,
+    "regression_tolerance_pct": 15,
+    "regression_noise_floor_ms": 1.0
+  },
+  "size": {
+    "max_database_mb": 400,
+    "max_dump_mb": 50
+  },
+  "stress": {
+    "clients": [
+      1,
+      4,
+      8,
+      16,
+      32,
+      64
+    ],
+    "duration_seconds": 10,
+    "warmup_seconds": 3,
+    "max_error_rate_pct": 1.0,
+    "p95_ms": 500,
+    "p99_ms": 1000,
+    "reference_clients": 8,
+    "workload": {
+      "patient_by_num_secu": 35,
+      "consultations_of_one_patient": 20,
+      "prescriptions_of_one_consultation": 15,
+      "medicament_search": 15,
+      "consultations_per_month": 8,
+      "top_diagnostics": 4,
+      "consultations_by_sexe": 2,
+      "consultations_per_specialite": 1
+    },
+    "min_clients": 8
+  }
+}

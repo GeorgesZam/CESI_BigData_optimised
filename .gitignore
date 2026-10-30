@@ -8,3 +8,6 @@ bench/report.md
 DATA 2024/**
 !DATA 2024/BDD PostgreSQL/
 !DATA 2024/BDD PostgreSQL/DATA2023
+bench/action*.json
+bench/stress.json
+bench/stress-report.md
