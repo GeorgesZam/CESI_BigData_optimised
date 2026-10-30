@@ -31,5 +31,16 @@
     "reason_text": "CPU saturated",
     "cpu_pct": 94.5,
     "memory_pct": 63.0
+  },
+  {
+    "commit": "8ddb350c9a52622ad677b7523d3f3f1426760894",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-10-30T14:45:37Z",
+    "max_users": 16,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 70.8,
+    "memory_pct": 17.3
   }
 ]
