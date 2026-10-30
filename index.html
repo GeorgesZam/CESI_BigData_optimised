@@ -7,18 +7,23 @@
   <style>
     :root { color-scheme: light; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 2rem 1rem 3rem; background: #f6f8fa; color: #1f2328; line-height: 1.5; }
-    main { max-width: 68rem; margin: 0 auto; }
+    main { max-width: 72rem; margin: 0 auto; }
     h1 { font-size: 1.6rem; margin: 0 0 0.2rem; }
     p.sub { color: #59636e; margin: 0 0 1.5rem; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1.25rem; }
-    .card { background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; padding: 1.1rem 1.2rem 1.3rem; }
-    .card h2 { font-size: 1.1rem; margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-    .badge { font-size: 1.4rem; font-weight: 700; }
+    h2.section { font-size: 1.15rem; margin: 2rem 0 0.8rem; }
+    .cards, .metrics { display: grid; gap: 1rem; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+    .metrics { grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+    .card { background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; padding: 1rem 1.1rem 1.2rem; }
+    .card h2 { font-size: 1.05rem; margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+    .card h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+    .badge { font-size: 1.35rem; font-weight: 700; }
     .postgres { color: #0969da; }
     .duckdb { color: #bc4c00; }
-    .blocked { color: #59636e; margin: 0.2rem 0 0.8rem; font-size: 0.92rem; }
-    .chart { position: relative; height: 16rem; }
-    table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; overflow: hidden; font-size: 0.9rem; margin-top: 1.5rem; }
+    .blocked { color: #59636e; margin: 0.2rem 0 0.6rem; font-size: 0.9rem; }
+    .chart { position: relative; height: 15rem; }
+    .chart.small { height: 11rem; }
+    table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #d1d9e0; border-radius: 10px; overflow: hidden; font-size: 0.9rem; margin-top: 2rem; }
     th, td { border-bottom: 1px solid #d1d9e0; padding: 0.5rem 0.65rem; text-align: left; }
     th { background: #f6f8fa; font-weight: 600; }
     td.num, th.num { text-align: right; }
@@ -30,7 +35,7 @@
 <body>
 <main>
   <h1>Maximum users before saturation</h1>
-  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors.</p>
+  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval.</p>
 
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
 
@@ -47,6 +52,16 @@
     </section>
   </div>
 
+  <h2 class="section" id="metrics-title" hidden>Metrics vs users</h2>
+  <div class="metrics" id="metrics" hidden>
+    <section class="card"><h3>p95 latency (ms)</h3><div class="chart small"><canvas id="metric-p95"></canvas></div></section>
+    <section class="card"><h3>p99 latency (ms)</h3><div class="chart small"><canvas id="metric-p99"></canvas></div></section>
+    <section class="card"><h3>CPU (%)</h3><div class="chart small"><canvas id="metric-cpu"></canvas></div></section>
+    <section class="card"><h3>Memory (%)</h3><div class="chart small"><canvas id="metric-memory"></canvas></div></section>
+    <section class="card"><h3>Errors (%)</h3><div class="chart small"><canvas id="metric-errors"></canvas></div></section>
+    <section class="card"><h3>Throughput (req/s)</h3><div class="chart small"><canvas id="metric-throughput"></canvas></div></section>
+  </div>
+
   <table id="results" hidden>
     <thead>
       <tr><th>Date</th><th>Engine</th><th class="num">Max users</th><th>Blocking reason</th><th>Change</th></tr>
@@ -59,16 +74,22 @@
   const COLORS = { postgres: "#0969da", duckdb: "#bc4c00" };
   const LABELS = { postgres: "PostgreSQL", duckdb: "DuckDB" };
 
-  function shortCommit(commit) {
-    return commit ? commit.slice(0, 7) : "local";
+  function shortCommit(commit) { return commit ? commit.slice(0, 7) : "local"; }
+  function dayOf(entry) { return entry.date.slice(0, 10); }
+  function niceMax(value) { return Math.max(10, Math.ceil(value / 50) * 50); }
+
+  function entryFor(history, engine, day) {
+    return history
+      .filter((entry) => entry.engine === engine && dayOf(entry) === day)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .at(-1);
   }
 
-  function dayOf(entry) {
-    return entry.date.slice(0, 10);
-  }
-
-  function niceMax(value) {
-    return Math.max(10, Math.ceil(value / 50) * 50);
+  function latestFor(history, engine, requireLevels = false) {
+    return history
+      .filter((entry) => entry.engine === engine && (!requireLevels || (entry.levels && entry.levels.length)))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .at(-1);
   }
 
   async function main() {
@@ -104,28 +125,15 @@
     const maxUsers = Math.max(...history.map((entry) => entry.max_users));
     const yMax = niceMax(maxUsers);
 
-    function entryFor(engine, day) {
-      return history
-        .filter((entry) => entry.engine === engine && dayOf(entry) === day)
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .at(-1);
-    }
-
-    function latestFor(engine) {
-      return history
-        .filter((entry) => entry.engine === engine)
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .at(-1);
-    }
-
-    function draw(engine) {
-      const latest = latestFor(engine);
+    function drawUsers(engine) {
+      const latest = latestFor(history, engine);
       if (!latest) return;
       document.getElementById(`${engine}-value`).textContent = `${latest.max_users} users`;
+      const breakText = latest.break_users ? ` at ${latest.break_users} users` : "";
       document.getElementById(`${engine}-reason`).textContent =
         latest.reason === "none"
           ? "no failure within the ramp"
-          : `blocked by ${latest.reason_text || latest.reason}`;
+          : `blocked by ${latest.reason_text || latest.reason}${breakText}`;
 
       new Chart(document.getElementById(`${engine}-chart`), {
         type: "line",
@@ -134,7 +142,7 @@
           datasets: [{
             label: LABELS[engine],
             data: days.map((day) => {
-              const entry = entryFor(engine, day);
+              const entry = entryFor(history, engine, day);
               return entry ? entry.max_users : null;
             }),
             borderColor: COLORS[engine],
@@ -155,7 +163,7 @@
             tooltip: {
               callbacks: {
                 label: (context) => {
-                  const entry = entryFor(engine, context.label);
+                  const entry = entryFor(history, engine, context.label);
                   if (!entry) return "";
                   const message = entry.commit_message ? ` — ${entry.commit_message}` : "";
                   return `${entry.max_users} users (${entry.reason_text || entry.reason})${message}`;
@@ -171,8 +179,59 @@
       });
     }
 
-    draw("postgres");
-    draw("duckdb");
+    drawUsers("postgres");
+    drawUsers("duckdb");
+
+    const engines = ["postgres", "duckdb"].filter((engine) => latestFor(history, engine, true));
+    if (!engines.length) return;
+
+    document.getElementById("metrics-title").hidden = false;
+    document.getElementById("metrics").hidden = false;
+
+    function drawMetric(canvasId, key, unit) {
+      const datasets = engines.map((engine) => {
+        const entry = latestFor(history, engine, true);
+        return {
+          label: LABELS[engine],
+          data: entry.levels.map((level) => ({ x: level.users, y: level[key] })),
+          borderColor: COLORS[engine],
+          backgroundColor: COLORS[engine],
+          borderWidth: 2,
+          tension: 0.2,
+          fill: false,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        };
+      });
+
+      new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10 } },
+            tooltip: {
+              callbacks: {
+                label: (context) => `${context.dataset.label}: ${context.parsed.y}${unit} at ${context.parsed.x} users`,
+              },
+            },
+          },
+          scales: {
+            x: { type: "linear", title: { display: true, text: "users" }, beginAtZero: true },
+            y: { beginAtZero: true, title: { display: true, text: unit } },
+          },
+        },
+      });
+    }
+
+    drawMetric("metric-p95", "p95_ms", " ms");
+    drawMetric("metric-p99", "p99_ms", " ms");
+    drawMetric("metric-cpu", "cpu_pct", "%");
+    drawMetric("metric-memory", "memory_pct", "%");
+    drawMetric("metric-errors", "error_rate_pct", "%");
+    drawMetric("metric-throughput", "throughput", " req/s");
   }
 
   main();
