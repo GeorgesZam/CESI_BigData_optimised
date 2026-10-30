@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793367738166,
+  "lastUpdate": 1793368061213,
   "repoUrl": "https://github.com/GeorgesZam/CESI_BigData_optimised",
   "entries": {
     "Database benchmark": [
@@ -86,6 +86,93 @@ window.BENCHMARK_DATA = {
           {
             "name": "median_medicament_search",
             "value": 12.53,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com",
+            "name": "_Georges.Zamfiroiu.AZ"
+          },
+          "committer": {
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com",
+            "name": "_Georges.Zamfiroiu.AZ"
+          },
+          "distinct": true,
+          "id": "40bcc79ce31b85b20a4d26404018fcd5318e7efd",
+          "message": "Make the stress workload deterministic and lengthen the levels",
+          "timestamp": "2026-10-30T14:47:01+01:00",
+          "tree_id": "d2ef877c2a73f79a973b4de482a4808ee167b7a8",
+          "url": "https://github.com/GeorgesZam/CESI_BigData_optimised/commit/40bcc79ce31b85b20a4d26404018fcd5318e7efd"
+        },
+        "date": 1793368060605,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "total_median_ms",
+            "value": 1133.45,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultations_per_month",
+            "value": 34.05,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultations_by_sexe",
+            "value": 93.13,
+            "unit": "ms"
+          },
+          {
+            "name": "median_top_diagnostics",
+            "value": 141.95,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultations_per_specialite",
+            "value": 238.33,
+            "unit": "ms"
+          },
+          {
+            "name": "median_top_medicaments_prescrits",
+            "value": 101.71,
+            "unit": "ms"
+          },
+          {
+            "name": "median_patients_with_many_consultations",
+            "value": 187.21,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultations_by_mutuelle",
+            "value": 76.11,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultation_duration_by_weekday",
+            "value": 201.37,
+            "unit": "ms"
+          },
+          {
+            "name": "median_patient_by_num_secu",
+            "value": 8.15,
+            "unit": "ms"
+          },
+          {
+            "name": "median_consultations_of_one_patient",
+            "value": 24.21,
+            "unit": "ms"
+          },
+          {
+            "name": "median_prescriptions_of_one_consultation",
+            "value": 19.11,
+            "unit": "ms"
+          },
+          {
+            "name": "median_medicament_search",
+            "value": 8.12,
             "unit": "ms"
           }
         ]
