@@ -30,7 +30,13 @@ import psycopg
 from benchmark import fmt_ms, load_queries, load_thresholds, percentile
 
 
-async def worker(dsn, queries, weights, deadline, latencies, errors):
+def build_deck(queries: list[dict], weights: list[int], seed: int = 42) -> list[dict]:
+    deck = [query for query, weight in zip(queries, weights) for _ in range(weight)]
+    random.Random(seed).shuffle(deck)
+    return deck
+
+
+async def worker(dsn, deck, offset, deadline, latencies, errors):
     try:
         conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True, connect_timeout=5)
     except Exception as exc:
@@ -38,8 +44,10 @@ async def worker(dsn, queries, weights, deadline, latencies, errors):
         return
     try:
         await conn.execute("SET jit = off")
+        index = offset
         while time.perf_counter() < deadline:
-            query = random.choices(queries, weights)[0]
+            query = deck[index % len(deck)]
+            index += 1
             started = time.perf_counter()
             try:
                 await (await conn.execute(query["sql"])).fetchall()
@@ -82,13 +90,15 @@ async def server_alive(dsn) -> bool:
             pass
 
 
-async def run_level(dsn, queries, weights, clients, duration) -> dict:
+async def run_level(dsn, deck, clients, duration) -> dict:
     latencies: list[float] = []
     errors: list[str] = []
     deadline = time.perf_counter() + duration
     tasks = [
-        asyncio.create_task(worker(dsn, queries, weights, deadline, latencies, errors))
-        for _ in range(clients)
+        asyncio.create_task(
+            worker(dsn, deck, (worker_id * 13) % len(deck), deadline, latencies, errors)
+        )
+        for worker_id in range(clients)
     ]
     await asyncio.gather(*tasks)
     alive = await server_alive(dsn)
@@ -206,15 +216,14 @@ async def main_async(args) -> int:
         raise SystemExit(f"unknown queries in the stress workload: {', '.join(unknown)}")
     workload = [by_name[name] for name in stress["workload"]]
     weights = list(stress["workload"].values())
+    deck = build_deck(workload, weights)
 
-    await run_level(args.dsn, workload, weights, 1, stress["warmup_seconds"])
+    await run_level(args.dsn, deck, 1, stress["warmup_seconds"])
 
     levels = []
     breaking = None
     for clients in stress["clients"]:
-        level = await run_level(
-            args.dsn, workload, weights, clients, stress["duration_seconds"]
-        )
+        level = await run_level(args.dsn, deck, clients, stress["duration_seconds"])
         level["verdict"] = failure_reason(level, stress)
         levels.append(level)
         if level["verdict"] != "pass":

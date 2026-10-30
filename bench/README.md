@@ -85,9 +85,9 @@ the job fail on any FAIL; without it the job reports and stays green.
 
 ## Stress test
 
-The stress job ramps 1, 4, 8, 16, 32 and 64 concurrent clients, 10 seconds per
-level. Each client runs a weighted mix of the queries, so a transaction looks like an
-application request:
+The stress job ramps 1, 4, 8, 16, 32 and 64 concurrent clients, 15 seconds per
+level after a 5-second warm-up. Each client runs a weighted mix of the queries from a
+fixed deck, so the mix is identical from one run to the next:
 
 | Query | Weight |
 | --- | ---: |

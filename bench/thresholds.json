@@ -19,8 +19,8 @@
       32,
       64
     ],
-    "duration_seconds": 10,
-    "warmup_seconds": 3,
+    "duration_seconds": 15,
+    "warmup_seconds": 5,
     "max_error_rate_pct": 1.0,
     "p95_ms": 500,
     "p99_ms": 1000,
