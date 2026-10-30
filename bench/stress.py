@@ -230,7 +230,9 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
     )
     lines.append(
         f"- Levels: {', '.join(str(value) for value in stress['clients'])} users, "
-        f"{stress['duration_seconds']} s each after a {stress['warmup_seconds']} s warm-up"
+        f"{stress['duration_seconds']} s each after a {stress['warmup_seconds']} s warm-up; "
+        f"refinement probes of {stress.get('refine_duration_seconds', stress['duration_seconds'])} s "
+        f"until the gap is <= {stress.get('refine_tolerance_pct', 10)}%"
     )
     lines.append("")
     verdict = max_clients_ok >= stress["min_clients"]
@@ -242,8 +244,16 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
             f"**Breaks at {breaking['clients']} {word}** — "
             f"{REASONS[breaking['verdict']]}."
         )
-    lines.append(f"Max users within SLA: **{max_clients_ok}** — "
-                 f"{'PASS' if verdict else 'FAIL'}")
+    if breaking is not None and max_clients_ok:
+        interval = round((breaking["clients"] - max_clients_ok) / max_clients_ok * 100, 1)
+        lines.append(
+            f"Max users within SLA: **{max_clients_ok}** "
+            f"(breaks at {breaking['clients']}, {interval}% above) — "
+            f"{'PASS' if verdict else 'FAIL'}"
+        )
+    else:
+        lines.append(f"Max users within SLA: **{max_clients_ok}** — "
+                     f"{'PASS' if verdict else 'FAIL'}")
     lines.append("")
     lines.append("| Users | Requests | Throughput (req/s) | p95 | p99 | CPU | Memory | Errors | Verdict |")
     lines.append("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
@@ -292,11 +302,50 @@ async def main_async(args) -> int:
             args.container,
         )
         level["verdict"] = failure_reason(level, stress)
+        level["phase"] = "ramp"
         levels.append(level)
         if level["verdict"] != "pass":
             breaking = level
             break
 
+    if breaking is not None:
+        passing = [level for level in levels if level["verdict"] == "pass"]
+        if passing:
+            low = max(level["clients"] for level in passing)
+            high = breaking["clients"]
+            tolerance = stress.get("refine_tolerance_pct", 10) / 100.0
+            max_probes = stress.get("refine_max_probes", 6)
+            probes = 0
+            while high / low > 1 + tolerance and probes < max_probes:
+                probe = int(round((low + high) / 2))
+                if probe <= low or probe >= high:
+                    break
+                level = await run_level(
+                    args.dsn,
+                    deck,
+                    probe,
+                    stress.get("refine_duration_seconds", stress["duration_seconds"]),
+                    stress["think_time_seconds"],
+                    args.container,
+                )
+                level["verdict"] = failure_reason(level, stress)
+                level["phase"] = "refine"
+                levels.append(level)
+                probes += 1
+                if level["verdict"] == "pass":
+                    low = probe
+                else:
+                    high = probe
+                    breaking = level
+            candidates = [
+                level
+                for level in levels
+                if level["clients"] == high and level["verdict"] != "pass"
+            ]
+            if candidates:
+                breaking = candidates[0]
+
+    levels.sort(key=lambda level: level["clients"])
     max_clients_ok = max(
         (level["clients"] for level in levels if level["verdict"] == "pass"), default=0
     )
@@ -325,10 +374,27 @@ async def main_async(args) -> int:
         "engine": args.engine,
         "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "max_users": max_clients_ok,
+        "break_users": breaking["clients"] if breaking else None,
+        "interval_pct": round((breaking["clients"] - max_clients_ok) / max_clients_ok * 100, 1)
+        if breaking and max_clients_ok
+        else None,
         "reason": reference["verdict"] if breaking else "none",
         "reason_text": REASONS[reference["verdict"] if breaking else "none"],
         "cpu_pct": reference.get("cpu_avg_pct"),
         "memory_pct": reference.get("memory_max_pct"),
+        "levels": [
+            {
+                "users": level["clients"],
+                "p95_ms": level["p95_ms"],
+                "p99_ms": level["p99_ms"],
+                "cpu_pct": level.get("cpu_avg_pct"),
+                "memory_pct": level.get("memory_max_pct"),
+                "error_rate_pct": level["error_rate_pct"],
+                "throughput": level["throughput"],
+                "verdict": level["verdict"],
+            }
+            for level in levels
+        ],
     }
     args.history_entry_out.parent.mkdir(parents=True, exist_ok=True)
     args.history_entry_out.write_text(json.dumps(entry, indent=2) + "\n", encoding="utf-8")
