@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+bench/results.json
+bench/report.md
+.DS_Store
+
+# Keep only the PostgreSQL dump; the raw CSV/Excel/PDF sources stay out of Git.
+DATA 2024/**
+!DATA 2024/BDD PostgreSQL/
+!DATA 2024/BDD PostgreSQL/DATA2023

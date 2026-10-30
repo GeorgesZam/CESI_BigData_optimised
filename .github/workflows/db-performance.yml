@@ -1,0 +1,142 @@
+name: Database performance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      enforce_budget:
+        description: Fail the job when a query exceeds its time budget or regresses
+        type: boolean
+        default: false
+      update_baseline:
+        description: Record this run as the new reference baseline
+        type: boolean
+        default: false
+
+concurrency:
+  group: db-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DUMP_PATH: "DATA 2024/BDD PostgreSQL/DATA2023"
+
+jobs:
+  benchmark:
+    name: Restore and benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cesi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cesi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: cesi
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install benchmark dependencies
+        run: pip install "psycopg[binary]"
+
+      - name: Locate the database dump
+        env:
+          DUMP_URL: ${{ vars.DUMP_URL }}
+        run: |
+          set -euo pipefail
+          dump="$RUNNER_TEMP/cesi.dump"
+          if [ -n "${DUMP_URL:-}" ]; then
+            echo "Downloading dump from the DUMP_URL repository variable"
+            curl -fsSL "$DUMP_URL" -o "$dump"
+          elif [ -f "$DUMP_PATH" ]; then
+            echo "Using dump from the repository"
+            cp "$DUMP_PATH" "$dump"
+          else
+            echo "::error::No dump found. Commit '$DUMP_PATH' or set the DUMP_URL repository variable."
+            exit 1
+          fi
+          echo "DUMP_FILE=$dump" >> "$GITHUB_ENV"
+          ls -lh "$dump"
+
+      - name: Restore the dump
+        run: |
+          set -euo pipefail
+          pg_restore --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
+          psql -X -c 'select count(*) as consultations from public."Consultation";'
+
+      - name: Run the benchmark
+        run: |
+          set -euo pipefail
+          args=(
+            --dsn "$DATABASE_URL"
+            --dump "$DUMP_FILE"
+            --repeats 5
+            --baseline bench/baseline.json
+            --json-out bench/results.json
+            --report-out bench/report.md
+          )
+          if [ "${{ inputs.update_baseline }}" = "true" ]; then
+            args+=(--write-baseline bench/baseline.json --commit "$GITHUB_SHA")
+          fi
+          if [ "${{ inputs.enforce_budget }}" = "true" ]; then
+            args+=(--strict)
+          fi
+          python bench/benchmark.py "${args[@]}"
+
+      - name: Publish the report to the job summary
+        if: always()
+        run: |
+          if [ -f bench/report.md ]; then
+            cat bench/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Record the new baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p reports
+          cp bench/report.md reports/latest.md
+          git add bench/baseline.json reports/latest.md
+          if git diff --cached --quiet; then
+            echo "Baseline unchanged"
+          else
+            git commit -m "chore(bench): update performance baseline [skip ci]"
+            git push
+          fi
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-performance-report
+          path: |
+            bench/report.md
+            bench/results.json
+            bench/baseline.json
+          if-no-files-found: warn
