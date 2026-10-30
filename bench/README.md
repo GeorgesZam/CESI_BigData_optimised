@@ -1,6 +1,6 @@
 # Database performance benchmark
 
-Two measurements run on every push, in separate jobs:
+Two measurements run on demand, in separate jobs:
 
 - **Latency benchmark** — the 12 queries from `../queries/`, one at a time, median
   and p95.
@@ -28,8 +28,9 @@ restored and measured.
    concurrency ramp.
 
 Both publish a report in the job summary (**Actions** → run → **Summary**) and as
-artifacts. The latency job also commits `bench/baseline.json` and
-`reports/latest.md` when run manually with `update_baseline = true`.
+artifacts. The workflow only runs on manual dispatch, to avoid spending Actions
+minutes on every commit. The latency job also commits `bench/baseline.json` and
+`reports/latest.md` when run with `update_baseline = true`.
 
 Two ways to provide the dump:
 

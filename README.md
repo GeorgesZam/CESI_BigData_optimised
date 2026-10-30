@@ -43,7 +43,8 @@ stands, so each later change can be judged on measured numbers.
 
 ## Benchmark
 
-`.github/workflows/db-performance.yml` runs two jobs against a PostgreSQL 14 service.
+`.github/workflows/db-performance.yml` runs two jobs on manual dispatch (to save
+Actions minutes), against a PostgreSQL 14 service.
 
 **Latency benchmark** (`bench/benchmark.py`):
 

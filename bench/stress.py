@@ -143,6 +143,19 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
     )
     lines.append(f"- Minimum clients to sustain: {stress['min_clients']}")
     lines.append("")
+    verdict = max_clients_ok >= stress["min_clients"]
+    if breaking is None:
+        lines.append(f"**No failure up to {levels[-1]['clients']} clients.**")
+    else:
+        word = "client" if breaking["clients"] == 1 else "clients"
+        lines.append(
+            f"**Breaks at {breaking['clients']} {word}** — reason `{breaking['verdict']}` "
+            f"(p95 {breaking['p95_ms']} ms, p99 {breaking['p99_ms']} ms, "
+            f"errors {breaking['error_rate_pct']}%)."
+        )
+    lines.append(f"Max clients within SLA: **{max_clients_ok}** — "
+                 f"{'PASS' if verdict else 'FAIL'}")
+    lines.append("")
     lines.append("| Clients | Transactions | Throughput (tx/s) | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) | Errors | Verdict |")
     lines.append("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
     for level in levels:
@@ -154,21 +167,6 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
             f"{fmt_ms(level['max_ms']) if level['max_ms'] is not None else '-'} | "
             f"{level['errors']} ({level['error_rate_pct']}%) | {level['verdict']} |"
         )
-    lines.append("")
-    if breaking is None:
-        lines.append(f"No failure up to {levels[-1]['clients']} clients.")
-    else:
-        word = "client" if breaking["clients"] == 1 else "clients"
-        lines.append(
-            f"**Breaking point:** {breaking['clients']} {word}, reason `{breaking['verdict']}` "
-            f"(p95 {breaking['p95_ms']} ms, p99 {breaking['p99_ms']} ms, "
-            f"errors {breaking['error_rate_pct']}%)."
-        )
-    lines.append("")
-    verdict = max_clients_ok >= stress["min_clients"]
-    lines.append(f"**Max clients within SLA:** {max_clients_ok}")
-    lines.append("")
-    lines.append(f"Overall: **{'PASS' if verdict else 'FAIL'}**")
     lines.append("")
     lines.append("The client runs on the same 4 vCPU machine as PostgreSQL, so above a few "
                  "dozen clients the load generator competes with the database for CPU. "
