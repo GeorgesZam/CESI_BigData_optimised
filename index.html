@@ -38,6 +38,7 @@
 <main>
   <h1>Maximum users before saturation</h1>
   <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval.</p>
+  <p class="sub" id="updated"></p>
 
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
   <div class="columns" id="columns"></div>
@@ -82,10 +83,11 @@
       .at(-1);
   }
 
-  function latestValue(entry, key) {
+  function valueAtMax(entry, key) {
     if (!entry || !entry.levels) return null;
-    for (let index = entry.levels.length - 1; index >= 0; index -= 1) {
-      const value = entry.levels[index][key];
+    const atMax = entry.levels.filter((level) => level.users <= entry.max_users);
+    for (let index = atMax.length - 1; index >= 0; index -= 1) {
+      const value = atMax[index][key];
       if (value !== null && value !== undefined) return value;
     }
     return null;
@@ -93,10 +95,13 @@
 
   function formatValue(value, metric) {
     if (value === null || value === undefined) return "–";
+    if (metric.key === "memory_pct") {
+      return `${Number(value).toFixed(1)}% · ${Math.round((value / 100) * 2048)} MB`;
+    }
     return `${Number(value).toFixed(metric.digits)}${metric.unit}`;
   }
 
-  function baseOptions(unit) {
+  function baseOptions(unit, metric) {
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -110,7 +115,7 @@
       },
       scales: {
         x: { type: "linear", beginAtZero: true, title: { display: true, text: "users" }, ticks: { precision: 0 } },
-        y: { beginAtZero: true, title: { display: true, text: unit } },
+        y: { beginAtZero: true, title: { display: true, text: metric && metric.key === "memory_pct" ? "% of 2 GB" : unit } },
       },
     };
   }
@@ -168,7 +173,7 @@
           pointHoverRadius: 5,
         }],
       },
-      options: baseOptions(metric.unit),
+      options: baseOptions(metric.unit, metric),
     });
   }
 
@@ -204,7 +209,7 @@
       const card = document.createElement("div");
       card.className = "card";
       card.innerHTML = `
-        <h3>${metric.label}<span class="latest ${engine.key}">${formatValue(latestValue(withLevels, metric.key), metric)}</span></h3>
+        <h3>${metric.label}<span class="latest ${engine.key}">${formatValue(valueAtMax(withLevels, metric.key), metric)}</span></h3>
         <div class="chart small"><canvas></canvas></div>`;
       column.appendChild(card);
       drawMetric(card.querySelector("canvas"), engine, withLevels, metric);
@@ -228,6 +233,8 @@
     }
 
     document.getElementById("results").hidden = false;
+    const lastDate = history.map((entry) => entry.date).sort().at(-1);
+    document.getElementById("updated").textContent = `Last data: ${lastDate.replace("T", " ").replace("Z", " UTC")}`;
     const body = document.querySelector("#results tbody");
     history.slice().sort((a, b) => b.date.localeCompare(a.date)).forEach((entry) => {
       const row = document.createElement("tr");
