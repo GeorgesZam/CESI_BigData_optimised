@@ -9,5 +9,16 @@
     "reason_text": "response time too slow (p95)",
     "cpu_pct": 82.0,
     "memory_pct": 18.2
+  },
+  {
+    "commit": "b04eceb2fa08e9a7bba66077b88363c9cb0abbca",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-10-30T14:35:16Z",
+    "max_users": 64,
+    "reason": "none",
+    "reason_text": "no failure",
+    "cpu_pct": 23.8,
+    "memory_pct": 15.7
   }
 ]
