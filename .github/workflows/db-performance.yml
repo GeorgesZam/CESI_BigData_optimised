@@ -7,6 +7,10 @@ on:
         description: Fail the job when the max-users criterion fails
         type: boolean
         default: false
+      note:
+        description: What changed to improve performance
+        type: string
+        default: ""
 
 concurrency:
   group: db-performance-duckdb-${{ github.ref }}
@@ -84,8 +88,11 @@ jobs:
           python bench/build_duckdb.py --dsn "$SOURCE_DSN" --out /tmp/cesi.duckdb
 
       - name: Run the stress test
+        env:
+          NOTE: ${{ inputs.note }}
         run: |
           set -euo pipefail
+          message="${NOTE:-$(git log -1 --format=%s)}"
           extra=""
           if [ "${{ inputs.enforce_budget }}" = "true" ]; then
             extra="--strict"
@@ -95,6 +102,7 @@ jobs:
             --thresholds bench/thresholds.json \
             --engine duckdb \
             --commit "$GITHUB_SHA" \
+            --commit-message "$message" \
             --branch "$GITHUB_REF_NAME" \
             --md-out bench/stress-report.md \
             --json-out bench/stress.json \

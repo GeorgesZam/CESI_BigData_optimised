@@ -162,6 +162,7 @@ def main() -> int:
     parser.add_argument("--thresholds", type=Path, default=Path("bench/thresholds.json"))
     parser.add_argument("--engine", default="duckdb")
     parser.add_argument("--commit", default=None)
+    parser.add_argument("--commit-message", default="")
     parser.add_argument("--branch", default=None)
     parser.add_argument("--memory-limit", default="2GB")
     parser.add_argument("--md-out", type=Path, default=Path("bench/stress-report.md"))
@@ -234,6 +235,7 @@ def main() -> int:
     reference = breaking or levels[-1]
     entry = {
         "commit": args.commit or os.environ.get("GITHUB_SHA", ""),
+        "commit_message": args.commit_message,
         "branch": args.branch or os.environ.get("GITHUB_REF_NAME", ""),
         "engine": args.engine,
         "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
