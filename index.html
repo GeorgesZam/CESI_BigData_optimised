@@ -9,7 +9,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem auto; max-width: 60rem; padding: 0 1rem; line-height: 1.5; color: #1f2328; }
     h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
     p.sub { color: #59636e; margin-top: 0; }
-    .chart { position: relative; height: 22rem; margin: 1.5rem 0; }
+    .chart { position: relative; height: 24rem; margin: 1.5rem 0; }
     table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
     th, td { border-bottom: 1px solid #d1d9e0; padding: 0.45rem 0.6rem; text-align: left; }
     th { background: #f6f8fa; font-weight: 600; }
@@ -31,16 +31,13 @@
     <tbody></tbody>
   </table>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script>
     const COLORS = { postgres: "#0969da", duckdb: "#bc4c00" };
     const LABELS = { postgres: "PostgreSQL", duckdb: "DuckDB" };
 
     function shortCommit(commit) {
       return commit ? commit.slice(0, 7) : "local";
-    }
-
-    function labelFor(entry) {
-      return `${entry.date.slice(0, 10)} ${shortCommit(entry.commit)}`;
     }
 
     async function main() {
@@ -69,41 +66,49 @@
         body.appendChild(row);
       });
 
-      const labels = [...new Set(history.map(labelFor))].sort();
       const engines = [...new Set(history.map((entry) => entry.engine))];
       const datasets = engines.map((engine) => ({
         label: LABELS[engine] || engine,
-        data: labels.map((label) => {
-          const entry = history.find((item) => labelFor(item) === label && item.engine === engine);
-          return entry ? entry.max_users : null;
-        }),
-        borderColor: COLORS[engine] || "#57606a",
+        data: history
+          .filter((entry) => entry.engine === engine)
+          .map((entry) => ({
+            x: entry.date,
+            y: entry.max_users,
+            reason: entry.reason_text || entry.reason,
+            commit: shortCommit(entry.commit),
+          })),
         backgroundColor: COLORS[engine] || "#57606a",
-        spanGaps: true,
-        tension: 0.2,
-        pointRadius: 4,
-        borderWidth: 2,
+        borderColor: COLORS[engine] || "#57606a",
+        pointRadius: 6,
+        pointHoverRadius: 8,
       }));
 
       new Chart(document.getElementById("chart"), {
-        type: "line",
-        data: { labels, datasets },
+        type: "scatter",
+        data: { datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            y: { beginAtZero: true, title: { display: true, text: "max users within SLA" }, ticks: { precision: 0 } },
-            x: { title: { display: true, text: "run" } },
+            x: {
+              type: "time",
+              time: { tooltipFormat: "yyyy-MM-dd HH:mm" },
+              title: { display: true, text: "date" },
+              ticks: { maxRotation: 0, autoSkip: true },
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "max users" },
+              ticks: { precision: 0 },
+            },
           },
           plugins: {
             legend: { position: "bottom" },
             tooltip: {
               callbacks: {
-                afterLabel: (context) => {
-                  const label = context.label;
-                  const engine = engines[context.datasetIndex];
-                  const entry = history.find((item) => labelFor(item) === label && item.engine === engine);
-                  return entry ? `blocked by: ${entry.reason_text || entry.reason}` : "";
+                label: (context) => {
+                  const point = context.raw;
+                  return `${context.dataset.label}: ${point.y} users (${point.reason}) — ${point.commit}`;
                 },
               },
             },
