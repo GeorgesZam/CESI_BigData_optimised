@@ -1,19 +1,15 @@
-name: Database performance
+name: DuckDB performance
 
 on:
   workflow_dispatch:
     inputs:
       enforce_budget:
-        description: Fail the job when an acceptance criterion fails
-        type: boolean
-        default: false
-      update_baseline:
-        description: Record this run as the new reference baseline
+        description: Fail the job when the max-users criterion fails
         type: boolean
         default: false
 
 concurrency:
-  group: db-performance-${{ github.ref }}
+  group: db-performance-duckdb-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,125 +19,8 @@ env:
   DUMP_PATH: "DATA 2024/BDD PostgreSQL/DATA2023"
 
 jobs:
-  benchmark:
-    name: Latency benchmark
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: cesi
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cesi"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
-    env:
-      PGHOST: localhost
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: cesi
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: bench/requirements.txt
-
-      - name: Install benchmark dependencies
-        run: pip install -r bench/requirements.txt
-
-      - name: Locate the database dump
-        env:
-          DUMP_URL: ${{ vars.DUMP_URL }}
-        run: |
-          set -euo pipefail
-          dump="$RUNNER_TEMP/cesi.dump"
-          if [ -n "${DUMP_URL:-}" ]; then
-            curl -fsSL "$DUMP_URL" -o "$dump"
-          elif [ -f "$DUMP_PATH" ]; then
-            cp "$DUMP_PATH" "$dump"
-          else
-            echo "::error::No dump found. Commit '$DUMP_PATH' or set the DUMP_URL repository variable."
-            exit 1
-          fi
-          echo "DUMP_FILE=$dump" >> "$GITHUB_ENV"
-
-      - name: Restore the dump
-        run: |
-          set -euo pipefail
-          pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
-          psql -X -c 'select count(*) as consultations from public."Consultation";'
-
-      - name: Run the benchmark
-        run: |
-          set -euo pipefail
-          args=(
-            --dsn "$DATABASE_URL"
-            --dump "$DUMP_FILE"
-            --repeats 3
-            --baseline bench/baseline.json
-            --json-out bench/results.json
-            --report-out bench/report.md
-            --action-out bench/action.json
-          )
-          if [ "${{ inputs.update_baseline }}" = "true" ]; then
-            args+=(--write-baseline bench/baseline.json --commit "$GITHUB_SHA")
-          fi
-          if [ "${{ inputs.enforce_budget }}" = "true" ]; then
-            args+=(--strict)
-          fi
-          python bench/benchmark.py "${args[@]}"
-
-      - name: Publish the report to the job summary
-        if: always()
-        run: |
-          if [ -f bench/report.md ]; then
-            cat bench/report.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Record the new baseline
-        if: github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p reports
-          cp bench/report.md reports/latest.md
-          git add bench/baseline.json reports/latest.md
-          if git diff --cached --quiet; then
-            echo "Baseline unchanged"
-          else
-            git commit -m "chore(bench): update performance baseline [skip ci]"
-            git push
-          fi
-
-      - name: Upload the report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: db-performance-report
-          path: |
-            bench/report.md
-            bench/results.json
-            bench/baseline.json
-          if-no-files-found: warn
-
-  stress:
-    name: Max users
-    needs: benchmark
-    if: always()
+  duckdb-stress:
+    name: DuckDB max users
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -154,8 +33,6 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --memory=2g
-          --memory-swap=2g
           --health-cmd "pg_isready -U postgres -d cesi"
           --health-interval 5s
           --health-timeout 5s
@@ -167,7 +44,7 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       PGDATABASE: cesi
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
+      SOURCE_DSN: "host=localhost port=5432 dbname=cesi user=postgres password=postgres"
 
     steps:
       - uses: actions/checkout@v4
@@ -178,7 +55,7 @@ jobs:
           cache: pip
           cache-dependency-path: bench/requirements.txt
 
-      - name: Install benchmark dependencies
+      - name: Install dependencies
         run: pip install -r bench/requirements.txt
 
       - name: Locate the database dump
@@ -202,26 +79,21 @@ jobs:
           set -euo pipefail
           pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
 
-      - name: Find the PostgreSQL container
+      - name: Build the DuckDB file
         run: |
-          container="$(docker ps --filter ancestor=postgres:14 --format '{{.Names}}' | head -1)"
-          echo "PG_CONTAINER=$container" >> "$GITHUB_ENV"
-          echo "container: $container"
+          python bench/build_duckdb.py --dsn "$SOURCE_DSN" --out /tmp/cesi.duckdb
 
       - name: Run the stress test
-        env:
-          PGOPTIONS: "-c work_mem=16MB"
         run: |
           set -euo pipefail
           extra=""
           if [ "${{ inputs.enforce_budget }}" = "true" ]; then
             extra="--strict"
           fi
-          python bench/stress.py \
-            --dsn "$DATABASE_URL" \
+          python bench/duckdb_stress.py \
+            --db /tmp/cesi.duckdb \
             --thresholds bench/thresholds.json \
-            --engine postgres \
-            --container "$PG_CONTAINER" \
+            --engine duckdb \
             --commit "$GITHUB_SHA" \
             --branch "$GITHUB_REF_NAME" \
             --md-out bench/stress-report.md \
@@ -252,17 +124,17 @@ jobs:
           if git diff --cached --quiet; then
             echo "history unchanged"
           else
-            git commit -m "chore(bench): record max users [skip ci]"
+            git commit -m "chore(bench): record DuckDB max users [skip ci]"
             git push origin HEAD:gh-pages
           fi
           cd "$GITHUB_WORKSPACE"
           git worktree remove --force /tmp/gh-pages
 
-      - name: Upload the stress report
+      - name: Upload the report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: db-stress-report
+          name: duckdb-stress-report
           path: |
             bench/stress-report.md
             bench/stress.json
