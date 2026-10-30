@@ -2,21 +2,117 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>CESI BigData performance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Max users before saturation</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 3rem auto; max-width: 40rem; line-height: 1.6; color: #1f2328; }
-    h1 { font-size: 1.6rem; }
-    li { margin: 0.4rem 0; }
-    a { color: #0969da; }
+    :root { color-scheme: light; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem auto; max-width: 60rem; padding: 0 1rem; line-height: 1.5; color: #1f2328; }
+    h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+    p.sub { color: #59636e; margin-top: 0; }
+    .chart { position: relative; height: 22rem; margin: 1.5rem 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+    th, td { border-bottom: 1px solid #d1d9e0; padding: 0.45rem 0.6rem; text-align: left; }
+    th { background: #f6f8fa; font-weight: 600; }
+    td.num, th.num { text-align: right; }
+    .postgres { color: #0969da; font-weight: 600; }
+    .duckdb { color: #bc4c00; font-weight: 600; }
+    .empty { padding: 2rem; text-align: center; color: #59636e; }
   </style>
 </head>
 <body>
-  <h1>CESI BigData performance</h1>
-  <p>History of the database measurements, one point per commit.</p>
-  <ul>
-    <li><a href="dev/bench/latency/">Latency benchmark</a> — median per query and total</li>
-    <li><a href="dev/bench/stress-latency/">Stress latency</a> — p95, p99, error rate at 8 clients</li>
-    <li><a href="dev/bench/stress-throughput/">Stress throughput</a> — tx/s at 8 clients and max clients within SLA</li>
-  </ul>
+  <h1>Maximum users before saturation</h1>
+  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors.</p>
+  <div class="chart"><canvas id="chart"></canvas></div>
+  <div id="empty" class="empty" hidden>No run recorded yet.</div>
+  <table id="results" hidden>
+    <thead>
+      <tr><th>Date</th><th>Engine</th><th class="num">Max users</th><th>Blocking reason</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const COLORS = { postgres: "#0969da", duckdb: "#bc4c00" };
+    const LABELS = { postgres: "PostgreSQL", duckdb: "DuckDB" };
+
+    function shortCommit(commit) {
+      return commit ? commit.slice(0, 7) : "local";
+    }
+
+    function labelFor(entry) {
+      return `${entry.date.slice(0, 10)} ${shortCommit(entry.commit)}`;
+    }
+
+    async function main() {
+      let history = [];
+      try {
+        const response = await fetch("history.json", { cache: "no-store" });
+        if (response.ok) history = await response.json();
+      } catch (error) {
+        console.error(error);
+      }
+
+      if (!history.length) {
+        document.getElementById("empty").hidden = false;
+        return;
+      }
+
+      document.getElementById("results").hidden = false;
+      const body = document.querySelector("#results tbody");
+      history.slice().sort((a, b) => b.date.localeCompare(a.date)).forEach((entry) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${entry.date.replace("T", " ").replace("Z", "")}</td>
+          <td class="${entry.engine}">${LABELS[entry.engine] || entry.engine}</td>
+          <td class="num">${entry.max_users}</td>
+          <td>${entry.reason_text || entry.reason || ""}</td>`;
+        body.appendChild(row);
+      });
+
+      const labels = [...new Set(history.map(labelFor))].sort();
+      const engines = [...new Set(history.map((entry) => entry.engine))];
+      const datasets = engines.map((engine) => ({
+        label: LABELS[engine] || engine,
+        data: labels.map((label) => {
+          const entry = history.find((item) => labelFor(item) === label && item.engine === engine);
+          return entry ? entry.max_users : null;
+        }),
+        borderColor: COLORS[engine] || "#57606a",
+        backgroundColor: COLORS[engine] || "#57606a",
+        spanGaps: true,
+        tension: 0.2,
+        pointRadius: 4,
+        borderWidth: 2,
+      }));
+
+      new Chart(document.getElementById("chart"), {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: "max users within SLA" }, ticks: { precision: 0 } },
+            x: { title: { display: true, text: "run" } },
+          },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                afterLabel: (context) => {
+                  const label = context.label;
+                  const engine = engines[context.datasetIndex];
+                  const entry = history.find((item) => labelFor(item) === label && item.engine === engine);
+                  return entry ? `blocked by: ${entry.reason_text || entry.reason}` : "";
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    main();
+  </script>
 </body>
 </html>
