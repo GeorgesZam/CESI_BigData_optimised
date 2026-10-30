@@ -33,7 +33,79 @@
     "reason_text": "CPU saturated",
     "cpu_pct": 94.5,
     "memory_pct": 63.0,
-    "commit_message": "Extend the DuckDB ramp to 2048 users [skip ci]"
+    "commit_message": "Extend the DuckDB ramp to 2048 users [skip ci]",
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 17.7,
+        "p99_ms": 42.9,
+        "cpu_pct": 2.7,
+        "memory_pct": 7.6,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 42.0,
+        "p99_ms": 95.5,
+        "cpu_pct": 5.7,
+        "memory_pct": 10.9,
+        "error_rate_pct": 0.0,
+        "throughput": 16.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 42.4,
+        "p99_ms": 102.4,
+        "cpu_pct": 10.4,
+        "memory_pct": 12.8,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 64,
+        "p95_ms": 81.8,
+        "p99_ms": 167.6,
+        "cpu_pct": 25.3,
+        "memory_pct": 16.4,
+        "error_rate_pct": 0.0,
+        "throughput": 64.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 119.1,
+        "p99_ms": 211.4,
+        "cpu_pct": 41.4,
+        "memory_pct": 19.9,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 256,
+        "p95_ms": 165.3,
+        "p99_ms": 332.5,
+        "cpu_pct": 88.8,
+        "memory_pct": 28.4,
+        "error_rate_pct": 0.0,
+        "throughput": 247.3,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 2431.4,
+        "p99_ms": 4404.0,
+        "cpu_pct": 94.5,
+        "memory_pct": 63.0,
+        "error_rate_pct": 0.0,
+        "throughput": 228.6,
+        "verdict": "cpu"
+      }
+    ]
   },
   {
     "commit": "8ddb350c9a52622ad677b7523d3f3f1426760894",
@@ -45,6 +117,38 @@
     "reason_text": "response time too slow (p95)",
     "cpu_pct": 70.8,
     "memory_pct": 17.3,
-    "commit_message": "Align the ramp levels with the optimized branch [skip ci]"
+    "commit_message": "Align the ramp levels with the optimized branch [skip ci]",
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 236.6,
+        "p99_ms": 434.7,
+        "cpu_pct": 19.7,
+        "memory_pct": 9.8,
+        "error_rate_pct": 0.0,
+        "throughput": 7.8,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 432.3,
+        "p99_ms": 647.4,
+        "cpu_pct": 41.7,
+        "memory_pct": 12.1,
+        "error_rate_pct": 0.0,
+        "throughput": 15.1,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 816.2,
+        "p99_ms": 2284.3,
+        "cpu_pct": 70.8,
+        "memory_pct": 17.3,
+        "error_rate_pct": 0.0,
+        "throughput": 26.4,
+        "verdict": "p95"
+      }
+    ]
   }
 ]
