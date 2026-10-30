@@ -11,6 +11,10 @@ on:
         description: Record this run as the new reference baseline
         type: boolean
         default: false
+      note:
+        description: What changed to improve performance
+        type: string
+        default: ""
 
 concurrency:
   group: db-performance-${{ github.ref }}
@@ -209,8 +213,10 @@ jobs:
       - name: Run the stress test
         env:
           PGOPTIONS: "-c work_mem=16MB"
+          NOTE: ${{ inputs.note }}
         run: |
           set -euo pipefail
+          message="${NOTE:-$(git log -1 --format=%s)}"
           extra=""
           if [ "${{ inputs.enforce_budget }}" = "true" ]; then
             extra="--strict"
@@ -221,6 +227,7 @@ jobs:
             --engine postgres \
             --container "$PG_CONTAINER" \
             --commit "$GITHUB_SHA" \
+            --commit-message "$message" \
             --branch "$GITHUB_REF_NAME" \
             --md-out bench/stress-report.md \
             --json-out bench/stress.json \
