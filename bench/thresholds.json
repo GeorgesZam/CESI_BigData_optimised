@@ -41,6 +41,9 @@
       "top_diagnostics": 4,
       "consultations_by_sexe": 2,
       "consultations_per_specialite": 1
-    }
+    },
+    "refine_tolerance_pct": 10,
+    "refine_max_probes": 6,
+    "refine_duration_seconds": 8
   }
 }
