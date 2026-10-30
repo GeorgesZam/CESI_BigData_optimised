@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "commit": "a47e5aea42dbc1833933fb5fe2e57087fb403059",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-10-30T14:31:39Z",
+    "max_users": 16,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 82.0,
+    "memory_pct": 18.2
+  }
+]
