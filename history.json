@@ -150,5 +150,91 @@
         "verdict": "p95"
       }
     ]
+  },
+  {
+    "commit": "78e8257055e3d7d84e5370c61eacf6524fa74df6",
+    "commit_message": "Refine the breaking point to a 10% interval [skip ci]",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-10-30T15:11:14Z",
+    "max_users": 17,
+    "break_users": 18,
+    "interval_pct": 5.9,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 40.1,
+    "memory_pct": 13.4,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 174.3,
+        "p99_ms": 356.5,
+        "cpu_pct": 18.9,
+        "memory_pct": 10.4,
+        "error_rate_pct": 0.0,
+        "throughput": 7.9,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 490.0,
+        "p99_ms": 864.8,
+        "cpu_pct": 43.5,
+        "memory_pct": 13.5,
+        "error_rate_pct": 0.0,
+        "throughput": 14.8,
+        "verdict": "pass"
+      },
+      {
+        "users": 17,
+        "p95_ms": 402.0,
+        "p99_ms": 862.8,
+        "cpu_pct": 34.5,
+        "memory_pct": 13.1,
+        "error_rate_pct": 0.0,
+        "throughput": 15.9,
+        "verdict": "pass"
+      },
+      {
+        "users": 18,
+        "p95_ms": 776.6,
+        "p99_ms": 1000.8,
+        "cpu_pct": 40.1,
+        "memory_pct": 13.4,
+        "error_rate_pct": 0.0,
+        "throughput": 16.4,
+        "verdict": "p95"
+      },
+      {
+        "users": 20,
+        "p95_ms": 596.9,
+        "p99_ms": 1176.8,
+        "cpu_pct": 50.6,
+        "memory_pct": 12.9,
+        "error_rate_pct": 0.0,
+        "throughput": 18.1,
+        "verdict": "p95"
+      },
+      {
+        "users": 24,
+        "p95_ms": 724.3,
+        "p99_ms": 1276.3,
+        "cpu_pct": 59.5,
+        "memory_pct": 14.1,
+        "error_rate_pct": 0.0,
+        "throughput": 21.1,
+        "verdict": "p95"
+      },
+      {
+        "users": 32,
+        "p95_ms": 809.3,
+        "p99_ms": 2166.1,
+        "cpu_pct": 69.5,
+        "memory_pct": 15.5,
+        "error_rate_pct": 0.0,
+        "throughput": 26.5,
+        "verdict": "p95"
+      }
+    ]
   }
 ]
