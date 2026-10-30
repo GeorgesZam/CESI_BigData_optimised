@@ -18,7 +18,6 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: write
 
 env:
   DUMP_PATH: "DATA 2024/BDD PostgreSQL/DATA2023"
@@ -70,17 +69,14 @@ jobs:
           set -euo pipefail
           dump="$RUNNER_TEMP/cesi.dump"
           if [ -n "${DUMP_URL:-}" ]; then
-            echo "Downloading dump from the DUMP_URL repository variable"
             curl -fsSL "$DUMP_URL" -o "$dump"
           elif [ -f "$DUMP_PATH" ]; then
-            echo "Using dump from the repository"
             cp "$DUMP_PATH" "$dump"
           else
             echo "::error::No dump found. Commit '$DUMP_PATH' or set the DUMP_URL repository variable."
             exit 1
           fi
           echo "DUMP_FILE=$dump" >> "$GITHUB_ENV"
-          ls -lh "$dump"
 
       - name: Restore the dump
         run: |
@@ -115,22 +111,6 @@ jobs:
             cat bench/report.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Publish latency history to gh-pages
-        if: success() && github.event_name != 'pull_request' 
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Database benchmark
-          tool: customSmallerIsBetter
-          output-file-path: bench/action.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/latency
-          comment-on-alert: true
-          alert-threshold: "115%"
-          fail-on-alert: false
-          summary-always: true
-
       - name: Record the new baseline
         if: github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref == 'refs/heads/main'
         run: |
@@ -155,12 +135,11 @@ jobs:
           path: |
             bench/report.md
             bench/results.json
-            bench/action.json
             bench/baseline.json
           if-no-files-found: warn
 
   stress:
-    name: Concurrency stress
+    name: Max users
     needs: benchmark
     if: always()
     runs-on: ubuntu-24.04
@@ -223,6 +202,12 @@ jobs:
           set -euo pipefail
           pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
 
+      - name: Find the PostgreSQL container
+        run: |
+          container="$(docker ps --filter ancestor=postgres:14 --format '{{.Names}}' | head -1)"
+          echo "PG_CONTAINER=$container" >> "$GITHUB_ENV"
+          echo "container: $container"
+
       - name: Run the stress test
         env:
           PGOPTIONS: "-c work_mem=16MB"
@@ -235,10 +220,13 @@ jobs:
           python bench/stress.py \
             --dsn "$DATABASE_URL" \
             --thresholds bench/thresholds.json \
+            --engine postgres \
+            --container "$PG_CONTAINER" \
+            --commit "$GITHUB_SHA" \
+            --branch "$GITHUB_REF_NAME" \
             --md-out bench/stress-report.md \
             --json-out bench/stress.json \
-            --action-latency-out bench/action-stress-latency.json \
-            --action-throughput-out bench/action-stress-throughput.json $extra
+            --history-entry-out bench/history-entry.json $extra
 
       - name: Publish the report to the job summary
         if: always()
@@ -247,37 +235,28 @@ jobs:
             cat bench/stress-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Publish stress latency to gh-pages
-        if: success() && github.event_name != 'pull_request' 
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Stress latency
-          tool: customSmallerIsBetter
-          output-file-path: bench/action-stress-latency.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/stress-latency
-          comment-on-alert: true
-          alert-threshold: "115%"
-          fail-on-alert: false
-          summary-always: true
-
-      - name: Publish stress throughput to gh-pages
-        if: success() && github.event_name != 'pull_request' 
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Stress throughput
-          tool: customBiggerIsBetter
-          output-file-path: bench/action-stress-throughput.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/stress-throughput
-          comment-on-alert: true
-          alert-threshold: "85%"
-          fail-on-alert: false
-          summary-always: true
+      - name: Publish the result to gh-pages
+        if: success()
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          rm -rf /tmp/gh-pages
+          git worktree add --detach /tmp/gh-pages origin/gh-pages
+          python bench/publish_history.py \
+            --history /tmp/gh-pages/history.json \
+            --entry bench/history-entry.json
+          cd /tmp/gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          if git diff --cached --quiet; then
+            echo "history unchanged"
+          else
+            git commit -m "chore(bench): record max users [skip ci]"
+            git push origin HEAD:gh-pages
+          fi
+          cd "$GITHUB_WORKSPACE"
+          git worktree remove --force /tmp/gh-pages
 
       - name: Upload the stress report
         if: always()
@@ -287,6 +266,5 @@ jobs:
           path: |
             bench/stress-report.md
             bench/stress.json
-            bench/action-stress-latency.json
-            bench/action-stress-throughput.json
+            bench/history-entry.json
           if-no-files-found: warn

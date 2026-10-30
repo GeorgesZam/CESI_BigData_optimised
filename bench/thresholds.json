@@ -13,17 +13,22 @@
   "stress": {
     "clients": [
       1,
+      2,
       4,
       8,
       16,
       32,
       64
     ],
-    "duration_seconds": 15,
-    "warmup_seconds": 5,
+    "duration_seconds": 20,
+    "warmup_seconds": 3,
+    "think_time_seconds": 1.0,
     "max_error_rate_pct": 1.0,
     "p95_ms": 500,
     "p99_ms": 1000,
+    "max_cpu_pct": 90,
+    "max_memory_pct": 90,
+    "min_clients": 8,
     "reference_clients": 8,
     "workload": {
       "patient_by_num_secu": 35,
@@ -34,7 +39,6 @@
       "top_diagnostics": 4,
       "consultations_by_sexe": 2,
       "consultations_per_specialite": 1
-    },
-    "min_clients": 8
+    }
   }
 }
