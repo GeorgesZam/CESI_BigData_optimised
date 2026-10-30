@@ -12,16 +12,16 @@
   },
   "stress": {
     "clients": [
-      1,
-      2,
       4,
       8,
       16,
       32,
-      64
+      64,
+      128,
+      256
     ],
-    "duration_seconds": 20,
-    "warmup_seconds": 3,
+    "duration_seconds": 10,
+    "warmup_seconds": 2,
     "think_time_seconds": 1.0,
     "max_error_rate_pct": 1.0,
     "p95_ms": 500,
