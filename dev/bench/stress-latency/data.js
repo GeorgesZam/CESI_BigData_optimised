@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793368137912,
+  "lastUpdate": 1793369002153,
   "repoUrl": "https://github.com/GeorgesZam/CESI_BigData_optimised",
   "entries": {
     "Stress latency": [
@@ -53,6 +53,31 @@ window.BENCHMARK_DATA = {
           {
             "name": "p95_at_last_level",
             "value": 712.2,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "_Georges.Zamfiroiu.AZ",
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com"
+          },
+          "committer": {
+            "name": "_Georges.Zamfiroiu.AZ",
+            "email": "_Georges.Zamfiroiu.AZ@sodexo.com"
+          },
+          "id": "22955bba12c66974fb89a51ec67b5e70129c63b7",
+          "message": "Lead with the breaking point and run the workflow on demand only [skip ci]",
+          "timestamp": "2026-10-30T13:57:43Z",
+          "url": "https://github.com/GeorgesZam/CESI_BigData_optimised/commit/22955bba12c66974fb89a51ec67b5e70129c63b7"
+        },
+        "date": 1793369001197,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "p95_at_last_level",
+            "value": 527.8,
             "unit": "ms"
           }
         ]
