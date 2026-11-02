@@ -18,6 +18,7 @@ import statistics
 import sys
 import threading
 import time
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,9 +42,20 @@ class ResourceSampler(threading.Thread):
         psutil.cpu_percent(None)
         while not self._stop_event.is_set():
             self.cpu.append(psutil.cpu_percent(None))
-            rss = self.process.memory_info().rss
-            self.memory.append(rss / self.memory_limit_bytes * 100.0)
+            self.memory.append(self._memory_bytes() / self.memory_limit_bytes * 100.0)
             self._stop_event.wait(0.5)
+
+    def _memory_bytes(self) -> int:
+        total = self.process.memory_info().rss
+        try:
+            for child in self.process.children(recursive=True):
+                try:
+                    total += child.memory_info().rss
+                except psutil.Error:
+                    pass
+        except psutil.Error:
+            pass
+        return total
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -90,12 +102,10 @@ def worker(db, deck, offset, deadline, think_time, memory_limit, latencies, erro
         connection.close()
 
 
-def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limit_bytes) -> dict:
+def worker_process(db, deck, clients, duration, think_time, memory_limit, offset):
     latencies: list[float] = []
     errors: list[str] = []
     lock = threading.Lock()
-    sampler = ResourceSampler(memory_limit_bytes)
-    sampler.start()
     deadline = time.perf_counter() + duration
     threads = [
         threading.Thread(
@@ -103,7 +113,7 @@ def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limi
             args=(
                 db,
                 deck,
-                (worker_id * 13) % len(deck),
+                (offset + worker_id * 13) % len(deck),
                 deadline,
                 think_time,
                 memory_limit,
@@ -118,6 +128,61 @@ def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limi
         thread.start()
     for thread in threads:
         thread.join()
+    return latencies, errors
+
+
+def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limit_bytes, executor=None, processes=1) -> dict:
+    latencies: list[float] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+    sampler = ResourceSampler(memory_limit_bytes)
+    sampler.start()
+    if executor is not None and processes > 1:
+        chunks = [
+            clients // processes + (1 if index < clients % processes else 0)
+            for index in range(processes)
+        ]
+        futures = [
+            executor.submit(
+                worker_process,
+                db,
+                deck,
+                chunk,
+                duration,
+                think_time,
+                memory_limit,
+                index * 7,
+            )
+            for index, chunk in enumerate(chunks)
+            if chunk > 0
+        ]
+        for future in futures:
+            chunk_latencies, chunk_errors = future.result()
+            latencies.extend(chunk_latencies)
+            errors.extend(chunk_errors)
+    else:
+        deadline = time.perf_counter() + duration
+        threads = [
+            threading.Thread(
+                target=worker,
+                args=(
+                    db,
+                    deck,
+                    (worker_id * 13) % len(deck),
+                    deadline,
+                    think_time,
+                    memory_limit,
+                    latencies,
+                    errors,
+                    lock,
+                ),
+            )
+            for worker_id in range(clients)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
     sampler.stop()
     sampler.join()
 
@@ -172,6 +237,7 @@ def main() -> int:
     parser.add_argument("--commit-message", default="")
     parser.add_argument("--branch", default=None)
     parser.add_argument("--memory-limit", default="2GB")
+    parser.add_argument("--processes", type=int, default=None)
     parser.add_argument("--md-out", type=Path, default=Path("bench/stress-report.md"))
     parser.add_argument("--json-out", type=Path, default=Path("bench/stress.json"))
     parser.add_argument("--history-entry-out", type=Path, default=Path("bench/history-entry.json"))
@@ -190,14 +256,24 @@ def main() -> int:
     deck = build_deck(workload, weights)
 
     memory_limit_bytes = 2 * 1024**3
+    processes = args.processes or stress.get("duckdb_processes", 4)
+    per_process_limit = (
+        args.memory_limit
+        if processes <= 1
+        else f"{max(128, (memory_limit_bytes // processes) // (1024**2))}MB"
+    )
+    executor = ProcessPoolExecutor(max_workers=processes) if processes > 1 else None
+
     run_level(
         str(args.db),
         deck,
         1,
         stress["warmup_seconds"],
         stress["think_time_seconds"],
-        args.memory_limit,
+        per_process_limit,
         memory_limit_bytes,
+        executor,
+        processes,
     )
 
     levels = []
@@ -209,8 +285,10 @@ def main() -> int:
             clients,
             stress["duration_seconds"],
             stress["think_time_seconds"],
-            args.memory_limit,
+            per_process_limit,
             memory_limit_bytes,
+            executor,
+            processes,
         )
         level["verdict"] = failure_reason(level, stress)
         level["phase"] = "ramp"
@@ -237,8 +315,10 @@ def main() -> int:
                     probe,
                     stress.get("refine_duration_seconds", stress["duration_seconds"]),
                     stress["think_time_seconds"],
-                    args.memory_limit,
+                    per_process_limit,
                     memory_limit_bytes,
+                    executor,
+                    processes,
                 )
                 level["verdict"] = failure_reason(level, stress)
                 level["phase"] = "refine"
@@ -256,6 +336,9 @@ def main() -> int:
             ]
             if candidates:
                 breaking = candidates[0]
+
+    if executor is not None:
+        executor.shutdown(wait=True)
 
     levels.sort(key=lambda level: level["clients"])
     max_clients_ok = max(

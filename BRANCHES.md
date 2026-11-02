@@ -4,8 +4,9 @@
   they are data transformation tools, not serving engines.
 - `optimized` — DuckDB. Same queries, same workload, same max-users test. The DuckDB
   file is built from the PostgreSQL dump once, before the measurement. The stress
-  harness gives each user its own thread and read-only DuckDB connection, with no
-  pool cap; the buffer manager caches the file (`memory_limit=2GB`, 4 threads). The
+  harness runs 4 processes, each giving every user a thread and a read-only DuckDB
+  connection; the processes bypass the GIL, and each buffer manager caches the file
+  (`memory_limit=512MB` per process, `threads=1` per query). The
   Rust harness in `rust/` measures the same queries against PostgreSQL; the DuckDB
   Rust engine is the next step.
 

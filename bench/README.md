@@ -12,13 +12,14 @@ layer. The measurement itself does not change data, indexes or queries.
 
 ## DuckDB harness
 
-On the optimized branch, each virtual user gets its own thread and its own read-only
-DuckDB connection, with no pool or thread cap. DuckDB's buffer manager caches the
-database file in the same process, with `memory_limit=2GB`. The DuckDB file carries
-ART indexes on the silver point-lookup columns (`num_secu`, `id_patient`,
-`num_consultation`, `code_cis`), and each connection runs with `threads=1`: small
-marts do not need per-query parallelism, and single-threaded execution roughly halves
-CPU at high concurrency.
+On the optimized branch, the stress runs in 4 processes, each with one thread and one
+read-only DuckDB connection per user. The processes remove the Python GIL ceiling, so
+the load generator can drive about four times more requests. Memory is split across
+processes (512 MB each, 2 GB total), and the buffer manager of each process caches the
+database file. The DuckDB file carries ART indexes on the silver point-lookup columns
+(`num_secu`, `id_patient`, `num_consultation`, `code_cis`), and each connection runs
+with `threads=1`: small marts do not need per-query parallelism, and single-threaded
+execution roughly halves CPU at high concurrency.
 
 ## Files
 
