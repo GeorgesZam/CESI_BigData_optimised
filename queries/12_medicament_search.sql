@@ -1,7 +1,7 @@
--- Free-text search on the medicament label (no trigram index).
+-- Free-text search on medicament labels (silver, trigram index).
 -- budget_ms: 1200
-SELECT "Code_CIS", "Denomination"
-FROM public."Medicaments"
-WHERE "Denomination" ILIKE '%doliprane%'
-ORDER BY "Denomination"
+SELECT code_cis, denomination
+FROM silver.medicament
+WHERE denomination ILIKE '%doliprane%'
+ORDER BY denomination
 LIMIT 50;

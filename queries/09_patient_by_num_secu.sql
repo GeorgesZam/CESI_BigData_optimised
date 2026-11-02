@@ -1,5 +1,5 @@
--- Point lookup on a non-indexed natural key (Patient.Num_Secu).
+-- Point lookup on the natural key (silver patient, indexed).
 -- budget_ms: 800
-SELECT "Id_patient", "Nom", "Prenom", "Ville"
-FROM public."Patient"
-WHERE "Num_Secu" = '5571905089387417';
+SELECT patient_id, nom, prenom, ville
+FROM silver.patient
+WHERE num_secu = '5571905089387417';
