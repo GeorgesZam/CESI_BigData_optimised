@@ -75,14 +75,16 @@ Actions minutes), against a PostgreSQL 14 service.
   Amazon S3 storage cost estimate;
 - publishes the report in the Actions job summary and as an artifact.
 
-**Max-users stress test** (`bench/stress.py`):
+**Max-users stress test** (`bench/stress.py`, through PgBouncer):
 
 - one user = one request per second, on a fixed weighted query mix;
 - ramps 1, 2, 4, 8, 16, 32 and 64 users;
 - stops at the first failure: server unreachable, CPU at 90%, memory at 90%, error
   rate above 1%, p95 above 500 ms or p99 above 1000 ms;
 - reports the maximum number of users and what blocked it;
-- requires at least 8 users within the SLA.
+- requires at least 8 users within the SLA;
+- runs through PgBouncer (50 server connections, up to 3000 clients), so the test
+  measures database capacity instead of PostgreSQL's default connection limit.
 
 Both jobs **do not optimize anything**: they create no index, rewrite no query and
 change no data. They only measure the database as restored, plus a

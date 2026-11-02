@@ -162,6 +162,7 @@ jobs:
         image: postgres:14
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: cesi
         ports:
           - 5432:5432
@@ -173,6 +174,21 @@ jobs:
           --health-timeout 5s
           --health-retries 20
 
+      pgbouncer:
+        image: edoburu/pgbouncer:latest
+        env:
+          DB_HOST: postgres
+          DB_PORT: "5432"
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: cesi
+          POOL_MODE: transaction
+          MAX_CLIENT_CONN: "3000"
+          DEFAULT_POOL_SIZE: "50"
+          AUTH_TYPE: trust
+        ports:
+          - 6432:6432
+
     env:
       PGHOST: localhost
       PGPORT: 5432
@@ -180,6 +196,7 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: cesi
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
+      STRESS_URL: postgresql://postgres:postgres@localhost:6432/cesi
 
     steps:
       - uses: actions/checkout@v4
@@ -228,9 +245,19 @@ jobs:
           echo "PG_CONTAINER=$container" >> "$GITHUB_ENV"
           echo "container: $container"
 
+      - name: Wait for PgBouncer
+        run: |
+          for attempt in $(seq 1 30); do
+            if pg_isready -h localhost -p 6432 -U postgres -d cesi; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::PgBouncer did not become ready"
+          exit 1
+
       - name: Run the stress test
         env:
-          PGOPTIONS: "-c work_mem=16MB"
           NOTE: ${{ inputs.note }}
         run: |
           set -euo pipefail
@@ -240,7 +267,7 @@ jobs:
             extra="--strict"
           fi
           python bench/stress.py \
-            --dsn "$DATABASE_URL" \
+            --dsn "$STRESS_URL" \
             --thresholds bench/thresholds.json \
             --engine postgres \
             --container "$PG_CONTAINER" \

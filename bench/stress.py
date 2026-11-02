@@ -104,7 +104,9 @@ class ResourceSampler:
 
 async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
     try:
-        conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True, connect_timeout=5)
+        conn = await psycopg.AsyncConnection.connect(
+            dsn, autocommit=True, connect_timeout=5, prepare_threshold=None
+        )
     except Exception as exc:
         message = str(exc).lower()
         if "too many clients" in message or "connection slots" in message:
@@ -113,7 +115,6 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
             errors.append(f"connect:{type(exc).__name__}")
         return
     try:
-        await conn.execute("SET jit = off")
         index = offset
         while time.perf_counter() < deadline:
             query = deck[index % len(deck)]
@@ -130,9 +131,11 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
                     pass
                 try:
                     conn = await psycopg.AsyncConnection.connect(
-                        dsn, autocommit=True, connect_timeout=5
+                        dsn,
+                        autocommit=True,
+                        connect_timeout=5,
+                        prepare_threshold=None,
                     )
-                    await conn.execute("SET jit = off")
                 except Exception as reconnect_exc:
                     errors.append(f"reconnect:{type(reconnect_exc).__name__}")
                     return
@@ -148,7 +151,9 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
 
 async def server_alive(dsn) -> bool:
     try:
-        conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True, connect_timeout=3)
+        conn = await psycopg.AsyncConnection.connect(
+            dsn, autocommit=True, connect_timeout=3, prepare_threshold=None
+        )
     except Exception:
         return False
     try:
