@@ -786,5 +786,101 @@
         "verdict": "cpu"
       }
     ]
+  },
+  {
+    "commit": "0e15d970ba2566253693f3cc09e18d53081dc29e",
+    "commit_message": "Partitioned gold facts by year",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-11-02T14:15:53Z",
+    "max_users": 96,
+    "break_users": 104,
+    "interval_pct": 8.3,
+    "reason": "connections",
+    "reason_text": "connection limit reached",
+    "cpu_pct": 4.0,
+    "memory_pct": 19.3,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 2.3,
+        "p99_ms": 2.8,
+        "cpu_pct": 0.8,
+        "memory_pct": 10.8,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 2.6,
+        "p99_ms": 6.5,
+        "cpu_pct": 0.9,
+        "memory_pct": 11.5,
+        "error_rate_pct": 0.0,
+        "throughput": 16.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 5.5,
+        "p99_ms": 29.0,
+        "cpu_pct": 1.4,
+        "memory_pct": 13.0,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 64,
+        "p95_ms": 5.6,
+        "p99_ms": 36.9,
+        "cpu_pct": 2.0,
+        "memory_pct": 16.1,
+        "error_rate_pct": 0.0,
+        "throughput": 64.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 96,
+        "p95_ms": 37.4,
+        "p99_ms": 39.9,
+        "cpu_pct": 3.1,
+        "memory_pct": 18.9,
+        "error_rate_pct": 0.0,
+        "throughput": 96.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 104,
+        "p95_ms": 15.5,
+        "p99_ms": 73.6,
+        "cpu_pct": 4.0,
+        "memory_pct": 19.3,
+        "error_rate_pct": 0.5,
+        "throughput": 100.0,
+        "verdict": "connections"
+      },
+      {
+        "users": 112,
+        "p95_ms": 22.7,
+        "p99_ms": 37.6,
+        "cpu_pct": 3.2,
+        "memory_pct": 19.3,
+        "error_rate_pct": 1.48,
+        "throughput": 100.0,
+        "verdict": "connections"
+      },
+      {
+        "users": 128,
+        "p95_ms": 16.0,
+        "p99_ms": 47.8,
+        "cpu_pct": 3.2,
+        "memory_pct": 19.4,
+        "error_rate_pct": 2.72,
+        "throughput": 100.0,
+        "verdict": "connections"
+      }
+    ]
   }
 ]
