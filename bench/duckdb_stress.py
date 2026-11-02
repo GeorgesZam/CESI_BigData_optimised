@@ -80,7 +80,7 @@ def build_executor(db: str, memory_limit: str, threads: int, size: int):
         return connection.execute(sql).fetchall()
 
     executor = ThreadPoolExecutor(max_workers=size, thread_name_prefix="duckdb")
-    futures = [executor.submit(execute, "SELECT 1") for _ in range(size)]
+    futures = [executor.submit(execute, "SELECT 1") for _ in range(min(size, 8))]
     for future in futures:
         future.result()
     return executor, execute
