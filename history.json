@@ -574,8 +574,8 @@
     "max_users": 104,
     "break_users": 112,
     "interval_pct": 7.7,
-    "reason": "error_rate",
-    "reason_text": "too many errors",
+    "reason": "connections",
+    "reason_text": "connection limit reached",
     "cpu_pct": 5.5,
     "memory_pct": 19.3,
     "levels": [
