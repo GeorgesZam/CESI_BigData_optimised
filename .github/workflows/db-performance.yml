@@ -167,8 +167,8 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --memory=2g
-          --memory-swap=2g
+          --memory=4g
+          --memory-swap=4g
           --health-cmd "pg_isready -U postgres -d cesi"
           --health-interval 5s
           --health-timeout 5s
@@ -230,6 +230,21 @@ jobs:
           echo "PG_CONTAINER=$container" >> "$GITHUB_ENV"
           echo "container: $container"
 
+      - name: Raise max_connections
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" psql -U postgres -c "ALTER SYSTEM SET max_connections = 350"
+          docker restart "$PG_CONTAINER"
+          for attempt in $(seq 1 60); do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d cesi; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::PostgreSQL did not restart"
+          docker logs "$PG_CONTAINER" --tail 50 || true
+          exit 1
+
       - name: Start PgBouncer
         run: |
           set -euo pipefail
@@ -248,7 +263,7 @@ jobs:
           auth_file = /tmp/userlist.txt
           pool_mode = transaction
           max_client_conn = 100000
-          default_pool_size = 90
+          default_pool_size = 300
           logfile = /tmp/pgbouncer.log
           pidfile = /tmp/pgbouncer.pid
           EOF
