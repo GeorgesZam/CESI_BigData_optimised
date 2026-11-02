@@ -1,9 +1,9 @@
 # Database performance report
 
-- Generated: 2026-11-02 13:30:59 UTC
+- Generated: 2026-11-02 13:58:24 UTC
 - Database: PostgreSQL 14.24 (Debian 14.24-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
-- Size: 352 MB, ~3,674,384 rows
-- Host: 4 vCPU, 15.6 GiB RAM, 84.3 GiB free disk of 144.3 GiB
+- Size: 1184 MB, ~10,436,232 rows
+- Host: 4 vCPU, 15.6 GiB RAM, 82.8 GiB free disk of 144.3 GiB
 - Runner: Linux 7.0.0-1017-azure / Python 3.12.15
 - Method: 1 warm-up run(s), 3 measured run(s), median and p95 wall time
 
@@ -13,18 +13,18 @@ Budgets are 2.5x the stored baseline median, rounded up to 50 ms with a floor of
 
 | Query | Median (ms) | p95 (ms) | Rows | Budget (ms) | Status | Seq scans |
 | --- | ---: | ---: | ---: | ---: | --- | --- |
-| `consultations_per_month` | 50.5 | 50.5 | 12 | 1200 | ok | Consultation |
-| `consultations_by_sexe` | 151.1 | 151.8 | 2 | 1500 | ok | Consultation, Patient |
-| `top_diagnostics` | 140.2 | 149.6 | 10 | 2000 | ok | Consultation, Diagnostic |
-| `consultations_per_specialite` | 378.7 | 379.9 | 20 | 2500 | ok | Consultation, Professionnel_de_sante, Specialites |
-| `top_medicaments_prescrits` | 98.2 | 99.0 | 20 | 2500 | ok | Medicaments, Prescription |
-| `patients_with_many_consultations` | 260.4 | 263.6 | 50 | 2500 | ok | Consultation |
-| `consultations_by_mutuelle` | 64.1 | 64.2 | 20 | 2000 | ok | Consultation, Mutuelle |
-| `consultation_duration_by_weekday` | 386.4 | 388.4 | 7 | 1500 | ok | Consultation |
-| `patient_by_num_secu` | 9.11 | 9.61 | 1 | 800 | ok | Patient |
-| `consultations_of_one_patient` | 29.7 | 30.1 | 6 | 800 | ok | Consultation |
-| `prescriptions_of_one_consultation` | 24.7 | 26.2 | 5 | 800 | ok | Prescription |
-| `medicament_search` | 12.1 | 12.3 | 30 | 1200 | ok | Medicaments |
+| `consultations_per_month` | 0.19 | 0.22 | 12 | 1200 | ok | mart_consultations_per_month |
+| `consultations_by_sexe` | 0.16 | 0.16 | 2 | 1500 | ok | mart_consultations_by_sexe |
+| `top_diagnostics` | 1.04 | 1.06 | 10 | 2000 | ok | mart_top_diagnostics |
+| `consultations_per_specialite` | 0.17 | 0.17 | 20 | 2500 | ok | mart_consultations_per_specialite |
+| `top_medicaments_prescrits` | 1.01 | 1.02 | 20 | 2500 | ok | mart_top_medicaments |
+| `patients_with_many_consultations` | 0.51 | 0.52 | 50 | 2500 | ok | mart_patients_with_many |
+| `consultations_by_mutuelle` | 0.17 | 0.18 | 20 | 2000 | ok | mart_consultations_by_mutuelle |
+| `consultation_duration_by_weekday` | 0.16 | 0.17 | 7 | 1500 | ok | mart_duration_by_weekday |
+| `patient_by_num_secu` | 0.17 | 0.18 | 1 | 800 | ok | none |
+| `consultations_of_one_patient` | 0.21 | 0.21 | 6 | 800 | ok | none |
+| `prescriptions_of_one_consultation` | 0.26 | 0.28 | 5 | 800 | ok | none |
+| `medicament_search` | 0.39 | 0.43 | 30 | 1200 | ok | none |
 
 ## Compared to the stored baseline
 
@@ -36,7 +36,7 @@ The query catalogue changed since the baseline was recorded, so the comparison i
 | --- | --- | --- | --- |
 | Latency budget | 2.5x baseline, floor 100 ms | 12/12 within budget | PASS |
 | Non-empty results | >= 1 row per query | 12/12 | PASS |
-| Database size | <= 400 MB | 369 MB | PASS |
+| Database size | <= 1600 MB | 1242 MB | PASS |
 | Dump size | <= 50 MB | 47 MB | PASS |
 
 Overall: **PASS**
@@ -47,8 +47,8 @@ Overall: **PASS**
 | --- | --- |
 | CPU | 4 vCPU |
 | RAM | 15.6 GiB |
-| Disk | 84.3 GiB free of 144.3 GiB |
-| Database size | 352 MB |
+| Disk | 82.8 GiB free of 144.3 GiB |
+| Database size | 1184 MB |
 | Dump size | 47.0 MB |
 | `shared_buffers` | 128MB |
 | `work_mem` | 4MB |
@@ -59,7 +59,7 @@ Overall: **PASS**
 
 | Stored object | Size (decimal GB) | S3 Standard | S3 Standard-IA | S3 Glacier Deep Archive |
 | --- | ---: | ---: | ---: | ---: |
-| Database (restored) | 0.369 | $0.0085/mo | $0.0046/mo | $0.0004/mo |
+| Database (restored) | 1.242 | $0.0286/mo | $0.0155/mo | $0.0012/mo |
 | Dump file | 0.047 | $0.0011/mo | $0.0006/mo | $0.0000/mo |
 
 Prices are us-east-1 list prices per GB-month for storage only. They exclude requests, egress, versioning and any other AWS service. Sizes use decimal GB (10^9 bytes), as AWS bills them.

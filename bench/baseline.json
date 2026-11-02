@@ -1,55 +1,55 @@
 {
-  "created_at": "2026-11-02 13:30:59 UTC",
-  "commit": "13e2147753ded7ab957e16fd6c61fd0245d84ce4",
-  "queries_sha256": "2790285d8068fd84a02a84bc447210012abc6b67dbc38302dea715e5e43efe83",
+  "created_at": "2026-11-02 13:58:24 UTC",
+  "commit": "cbef02884337cba4f0835b12d013f8027eb233f0",
+  "queries_sha256": "a14458eb268d35eb78aceb032f95bdadab4a08c06e60662e7fe01b721eb05561",
   "queries": {
     "consultations_per_month": {
-      "median_ms": 50.45,
-      "p95_ms": 50.52
+      "median_ms": 0.19,
+      "p95_ms": 0.22
     },
     "consultations_by_sexe": {
-      "median_ms": 151.1,
-      "p95_ms": 151.83
+      "median_ms": 0.16,
+      "p95_ms": 0.16
     },
     "top_diagnostics": {
-      "median_ms": 140.22,
-      "p95_ms": 149.61
+      "median_ms": 1.04,
+      "p95_ms": 1.06
     },
     "consultations_per_specialite": {
-      "median_ms": 378.7,
-      "p95_ms": 379.88
+      "median_ms": 0.17,
+      "p95_ms": 0.17
     },
     "top_medicaments_prescrits": {
-      "median_ms": 98.21,
-      "p95_ms": 98.95
+      "median_ms": 1.01,
+      "p95_ms": 1.02
     },
     "patients_with_many_consultations": {
-      "median_ms": 260.44,
-      "p95_ms": 263.61
+      "median_ms": 0.51,
+      "p95_ms": 0.52
     },
     "consultations_by_mutuelle": {
-      "median_ms": 64.06,
-      "p95_ms": 64.22
+      "median_ms": 0.17,
+      "p95_ms": 0.18
     },
     "consultation_duration_by_weekday": {
-      "median_ms": 386.45,
-      "p95_ms": 388.36
+      "median_ms": 0.16,
+      "p95_ms": 0.17
     },
     "patient_by_num_secu": {
-      "median_ms": 9.11,
-      "p95_ms": 9.61
+      "median_ms": 0.17,
+      "p95_ms": 0.18
     },
     "consultations_of_one_patient": {
-      "median_ms": 29.74,
-      "p95_ms": 30.1
+      "median_ms": 0.21,
+      "p95_ms": 0.21
     },
     "prescriptions_of_one_consultation": {
-      "median_ms": 24.74,
-      "p95_ms": 26.21
+      "median_ms": 0.26,
+      "p95_ms": 0.28
     },
     "medicament_search": {
-      "median_ms": 12.12,
-      "p95_ms": 12.31
+      "median_ms": 0.39,
+      "p95_ms": 0.43
     }
   }
 }
