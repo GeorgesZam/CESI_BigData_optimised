@@ -41,8 +41,9 @@ because bronze, silver and gold keep the raw, cleaned and modeled data side by s
 `sql/00_bronze.sql`, `sql/10_silver.sql`, `sql/20_gold.sql` and `sql/30_analyze.sql`
 build the layers. `bench/build_layers.py` runs them and reports the time of each step
 in the job summary. Analytics queries read `gold.mart_*`; point lookups read indexed
-`silver.*` tables. The gold fact tables are partitioned by year on `date_key`, so a
-query filtered on one year reads one partition instead of the whole fact table.
+`silver.*` tables. The gold fact is partitioned by year on `date_key` and hash-bucketed
+by `patient_key` into 8 buckets, so a year filter reads one year's buckets and a
+patient filter reads one bucket per year instead of the whole fact table.
 
 ## Dataset
 

@@ -57,19 +57,35 @@ CREATE TABLE gold.fact_consultation (
     mutuelle_key integer NOT NULL,
     diag_key text NOT NULL,
     duration_minutes numeric(8,2),
-    PRIMARY KEY (num_consultation, date_key)
+    PRIMARY KEY (num_consultation, patient_key, date_key)
 ) PARTITION BY RANGE (date_key);
 
-CREATE TABLE gold.fact_consultation_2015 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2015-01-01') TO ('2016-01-01');
-CREATE TABLE gold.fact_consultation_2016 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2016-01-01') TO ('2017-01-01');
-CREATE TABLE gold.fact_consultation_2017 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2017-01-01') TO ('2018-01-01');
-CREATE TABLE gold.fact_consultation_2018 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2018-01-01') TO ('2019-01-01');
-CREATE TABLE gold.fact_consultation_2019 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2019-01-01') TO ('2020-01-01');
-CREATE TABLE gold.fact_consultation_2020 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2020-01-01') TO ('2021-01-01');
-CREATE TABLE gold.fact_consultation_2021 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2021-01-01') TO ('2022-01-01');
-CREATE TABLE gold.fact_consultation_2022 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2022-01-01') TO ('2023-01-01');
-CREATE TABLE gold.fact_consultation_2023 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2023-01-01') TO ('2024-01-01');
-CREATE TABLE gold.fact_consultation_default PARTITION OF gold.fact_consultation DEFAULT;
+-- Year partitions, each hash-bucketed by patient into 8 buckets.
+DO $$
+DECLARE
+    y int;
+    b int;
+BEGIN
+    FOR y IN 2015..2023 LOOP
+        EXECUTE format(
+            'CREATE TABLE gold.fact_consultation_%s PARTITION OF gold.fact_consultation FOR VALUES FROM (%L) TO (%L) PARTITION BY HASH (patient_key)',
+            y, y || '-01-01', (y + 1) || '-01-01'
+        );
+        FOR b IN 0..7 LOOP
+            EXECUTE format(
+                'CREATE TABLE gold.fact_consultation_%s_b%s PARTITION OF gold.fact_consultation_%s FOR VALUES WITH (MODULUS 8, REMAINDER %s)',
+                y, b, y, b
+            );
+        END LOOP;
+    END LOOP;
+    EXECUTE 'CREATE TABLE gold.fact_consultation_default PARTITION OF gold.fact_consultation DEFAULT PARTITION BY HASH (patient_key)';
+    FOR b IN 0..7 LOOP
+        EXECUTE format(
+            'CREATE TABLE gold.fact_consultation_default_b%s PARTITION OF gold.fact_consultation_default FOR VALUES WITH (MODULUS 8, REMAINDER %s)',
+            b, b
+        );
+    END LOOP;
+END $$;
 
 INSERT INTO gold.fact_consultation
 SELECT
@@ -89,11 +105,11 @@ ALTER TABLE gold.fact_consultation
     ADD CONSTRAINT fact_consultation_mutuelle_fkey FOREIGN KEY (mutuelle_key) REFERENCES gold.dim_mutuelle (id_mut),
     ADD CONSTRAINT fact_consultation_diag_fkey FOREIGN KEY (diag_key) REFERENCES gold.dim_diagnostic (code_diag);
 
-CREATE INDEX fact_consultation_date_idx ON gold.fact_consultation (date_key);
-CREATE INDEX fact_consultation_patient_idx ON gold.fact_consultation (patient_key);
-CREATE INDEX fact_consultation_prof_idx ON gold.fact_consultation (prof_key);
-CREATE INDEX fact_consultation_mutuelle_idx ON gold.fact_consultation (mutuelle_key);
-CREATE INDEX fact_consultation_diag_idx ON gold.fact_consultation (diag_key);
+-- CREATE INDEX fact_consultation_date_idx ON gold.fact_consultation (date_key);
+-- CREATE INDEX fact_consultation_patient_idx ON gold.fact_consultation (patient_key);
+-- CREATE INDEX fact_consultation_prof_idx ON gold.fact_consultation (prof_key);
+-- CREATE INDEX fact_consultation_mutuelle_idx ON gold.fact_consultation (mutuelle_key);
+-- CREATE INDEX fact_consultation_diag_idx ON gold.fact_consultation (diag_key);
 
 CREATE TABLE gold.fact_prescription (
     prescription_id bigint NOT NULL,
