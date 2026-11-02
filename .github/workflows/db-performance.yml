@@ -181,7 +181,7 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: cesi
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
-      STRESS_URL: postgresql://postgres:postgres@127.0.0.1:6432/cesi
+      STRESS_URL: postgresql://postgres:postgres@127.0.0.1:6543/cesi
 
     steps:
       - uses: actions/checkout@v4
@@ -235,12 +235,14 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq pgbouncer
+          sudo systemctl stop pgbouncer 2>/dev/null || true
+          sudo systemctl disable pgbouncer 2>/dev/null || true
           cat > /tmp/pgbouncer.ini <<'EOF'
           [databases]
           cesi = host=127.0.0.1 port=5432 dbname=cesi
           [pgbouncer]
           listen_addr = 127.0.0.1
-          listen_port = 6432
+          listen_port = 6543
           auth_type = trust
           auth_file = /tmp/userlist.txt
           pool_mode = transaction
@@ -249,10 +251,12 @@ jobs:
           logfile = /tmp/pgbouncer.log
           pidfile = /tmp/pgbouncer.pid
           EOF
-          printf '"postgres" ""\n' > /tmp/userlist.txt
-          pgbouncer -d /tmp/pgbouncer.ini
+          printf '"postgres" "postgres"\n' > /tmp/userlist.txt
+          pgbouncer -d /tmp/pgbouncer.ini || { cat /tmp/pgbouncer.log; exit 1; }
+          pgrep -a pgbouncer || true
+          grep auth_type /tmp/pgbouncer.ini
           for attempt in $(seq 1 30); do
-            if pg_isready -h 127.0.0.1 -p 6432 -U postgres -d cesi; then
+            if pg_isready -h 127.0.0.1 -p 6543 -U postgres -d cesi; then
               break
             fi
             sleep 1
