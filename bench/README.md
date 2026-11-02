@@ -2,13 +2,22 @@
 
 Two measurements run on demand, in separate jobs:
 
-- **Latency benchmark** — the 12 queries from `../queries/`, one at a time, median
+- **Latency benchmark** — the 14 queries from `../queries/`, one at a time, median
   and p95.
 - **Concurrency stress test** — a weighted query mix with a growing number of
   clients, until the database fails or leaves the SLA.
 
 Both jobs build the bronze, silver and gold layers first, then measure the serving
 layer. The measurement itself does not change data, indexes or queries.
+
+## DuckDB harness
+
+On the optimized branch, the stress test uses the same virtual-user model as
+PostgreSQL: lightweight asyncio clients and a fixed pool of 90 execution threads, one
+read-only DuckDB connection each. DuckDB's buffer manager caches the database file in
+the same process, with `memory_limit=2GB` and `threads=4`, matching the PostgreSQL
+container. The pool plays the role of PgBouncer's 90 server connections, so the
+comparison measures serving capacity instead of one Python thread per user.
 
 ## Files
 
@@ -17,6 +26,7 @@ layer. The measurement itself does not change data, indexes or queries.
 - `build_layers.py` — runs the SQL files and reports the time of each layer.
 - `benchmark.py` — latency measurement, acceptance criteria, report and baseline.
 - `stress.py` — concurrency ramp, failure detection, stress report.
+- `duckdb_stress.py` — DuckDB ramp with the same virtual-user model and a 90-slot pool.
 - `thresholds.json` — acceptance criteria and stress settings.
 - `baseline.json` — reference timings recorded on GitHub Actions.
 - `publish_history.py` — appends a run to the gh-pages history.

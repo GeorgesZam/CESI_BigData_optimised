@@ -20,7 +20,11 @@
       256,
       512,
       1024,
-      2048
+      2048,
+      4096,
+      8192,
+      16384,
+      32768
     ],
     "duration_seconds": 10,
     "warmup_seconds": 2,
@@ -44,6 +48,7 @@
     },
     "refine_tolerance_pct": 10,
     "refine_max_probes": 6,
-    "refine_duration_seconds": 8
+    "refine_duration_seconds": 8,
+    "duckdb_connections": 90
   }
 }
