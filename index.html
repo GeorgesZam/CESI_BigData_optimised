@@ -37,7 +37,7 @@
 <body>
 <main>
   <h1>Maximum users before saturation</h1>
-  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval. The red dashed line is the acceptance threshold; red points are failing levels, and max users is the last passing level.</p>
+  <p class="sub">One user = one request per second. The ramp stops at the first failure: CPU, memory, response time or errors. The breaking point is refined to a 10% interval. The red dashed line is the acceptance threshold; red points are failing levels. Charts stop at the first failure, so the refinement probes above it are hidden.</p>
   <p class="sub" id="updated"></p>
 
   <div id="empty" class="empty" hidden>No run recorded yet.</div>
@@ -172,7 +172,10 @@
   }
 
   function drawMetric(canvas, engine, entry, metric) {
-    const points = ((entry && entry.levels) || [])
+    const levels = ((entry && entry.levels) || []).filter(
+      (level) => entry.break_users === null || entry.break_users === undefined || level.users <= entry.break_users
+    );
+    const points = levels
       .filter((level) => level[metric.key] !== null && level[metric.key] !== undefined)
       .map((level) => ({ x: level.users, y: level[metric.key], verdict: level.verdict }));
     const datasets = [{
