@@ -1240,5 +1240,131 @@
         "verdict": "p95"
       }
     ]
+  },
+  {
+    "commit": "7bbb0f405179eefe278cab5c50c93ec4a511d5d7",
+    "commit_message": "DuckDB: asyncio users, 90-slot pool, 2GB cache",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-11-02T15:23:08Z",
+    "max_users": 640,
+    "break_users": 704,
+    "interval_pct": 10.0,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 63.7,
+    "memory_pct": 16.2,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 10.4,
+        "p99_ms": 11.8,
+        "cpu_pct": 1.4,
+        "memory_pct": 8.5,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 17.2,
+        "p99_ms": 18.8,
+        "cpu_pct": 2.0,
+        "memory_pct": 10.0,
+        "error_rate_pct": 0.0,
+        "throughput": 16.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 34.1,
+        "p99_ms": 37.0,
+        "cpu_pct": 3.7,
+        "memory_pct": 10.6,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 64,
+        "p95_ms": 48.8,
+        "p99_ms": 69.4,
+        "cpu_pct": 9.4,
+        "memory_pct": 11.1,
+        "error_rate_pct": 0.0,
+        "throughput": 64.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 90.6,
+        "p99_ms": 133.6,
+        "cpu_pct": 17.8,
+        "memory_pct": 12.1,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 256,
+        "p95_ms": 158.9,
+        "p99_ms": 269.7,
+        "cpu_pct": 25.0,
+        "memory_pct": 13.2,
+        "error_rate_pct": 0.0,
+        "throughput": 256.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 329.0,
+        "p99_ms": 527.9,
+        "cpu_pct": 47.3,
+        "memory_pct": 14.0,
+        "error_rate_pct": 0.0,
+        "throughput": 512.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 640,
+        "p95_ms": 472.4,
+        "p99_ms": 667.8,
+        "cpu_pct": 57.9,
+        "memory_pct": 16.1,
+        "error_rate_pct": 0.0,
+        "throughput": 640.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 704,
+        "p95_ms": 511.8,
+        "p99_ms": 751.5,
+        "cpu_pct": 63.7,
+        "memory_pct": 16.2,
+        "error_rate_pct": 0.0,
+        "throughput": 697.4,
+        "verdict": "p95"
+      },
+      {
+        "users": 768,
+        "p95_ms": 614.1,
+        "p99_ms": 782.9,
+        "cpu_pct": 68.4,
+        "memory_pct": 15.5,
+        "error_rate_pct": 0.0,
+        "throughput": 753.4,
+        "verdict": "p95"
+      },
+      {
+        "users": 1024,
+        "p95_ms": 637.8,
+        "p99_ms": 1022.7,
+        "cpu_pct": 86.8,
+        "memory_pct": 15.8,
+        "error_rate_pct": 0.0,
+        "throughput": 928.2,
+        "verdict": "p95"
+      }
+    ]
   }
 ]
