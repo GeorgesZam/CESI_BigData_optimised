@@ -40,6 +40,7 @@ REASONS = {
     "cpu": "CPU saturated",
     "error_rate": "too many errors",
     "connections": "connection limit reached",
+    "client_limit": "load generator limit (file descriptors)",
     "p95": "response time too slow (p95)",
     "p99": "response time too slow (p99)",
     "none": "no failure",
@@ -102,7 +103,7 @@ class ResourceSampler:
         }
 
 
-async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
+async def worker(dsn, deck, offset, duration, think_time, latencies, errors, barrier):
     try:
         conn = await psycopg.AsyncConnection.connect(
             dsn, autocommit=True, connect_timeout=5, prepare_threshold=None
@@ -111,10 +112,18 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
         message = str(exc).lower()
         if "too many clients" in message or "connection slots" in message:
             errors.append("connections")
+        elif "too many open files" in message:
+            errors.append("client_limit")
         else:
             errors.append(f"connect:{type(exc).__name__}:{str(exc).splitlines()[0][:120]}")
+        barrier.abort()
         return
     try:
+        try:
+            await barrier.wait()
+        except asyncio.BrokenBarrierError:
+            return
+        deadline = time.perf_counter() + duration
         index = offset
         while time.perf_counter() < deadline:
             query = deck[index % len(deck)]
@@ -173,17 +182,18 @@ async def run_level(dsn, deck, clients, duration, think_time, container) -> dict
     errors: list[str] = []
     sampler = ResourceSampler(container)
     sampler_task = asyncio.create_task(sampler.run())
-    deadline = time.perf_counter() + duration
+    barrier = asyncio.Barrier(clients)
     tasks = [
         asyncio.create_task(
             worker(
                 dsn,
                 deck,
                 (worker_id * 13) % len(deck),
-                deadline,
+                duration,
                 think_time,
                 latencies,
                 errors,
+                barrier,
             )
         )
         for worker_id in range(clients)
@@ -220,6 +230,8 @@ def failure_reason(level: dict, stress: dict) -> str:
         return "cpu"
     if "connections" in level["errors_sample"]:
         return "connections"
+    if "client_limit" in level["errors_sample"]:
+        return "client_limit"
     if level["error_rate_pct"] > stress["max_error_rate_pct"]:
         return "error_rate"
     if level["p95_ms"] is not None and level["p95_ms"] > stress["p95_ms"]:

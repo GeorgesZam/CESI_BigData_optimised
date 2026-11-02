@@ -233,6 +233,7 @@ jobs:
       - name: Start PgBouncer
         run: |
           set -euo pipefail
+          ulimit -n 200000
           sudo apt-get update -qq
           sudo apt-get install -y -qq pgbouncer
           sudo systemctl stop pgbouncer 2>/dev/null || true
@@ -246,8 +247,8 @@ jobs:
           auth_type = trust
           auth_file = /tmp/userlist.txt
           pool_mode = transaction
-          max_client_conn = 3000
-          default_pool_size = 50
+          max_client_conn = 100000
+          default_pool_size = 90
           logfile = /tmp/pgbouncer.log
           pidfile = /tmp/pgbouncer.pid
           EOF
@@ -277,6 +278,7 @@ jobs:
           NOTE: ${{ inputs.note }}
         run: |
           set -euo pipefail
+          ulimit -n 200000
           message="${NOTE:-$(git log -1 --format=%s)}"
           extra=""
           if [ "${{ inputs.enforce_budget }}" = "true" ]; then
