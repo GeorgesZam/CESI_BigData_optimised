@@ -112,7 +112,7 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
         if "too many clients" in message or "connection slots" in message:
             errors.append("connections")
         else:
-            errors.append(f"connect:{type(exc).__name__}")
+            errors.append(f"connect:{type(exc).__name__}:{str(exc).splitlines()[0][:120]}")
         return
     try:
         index = offset

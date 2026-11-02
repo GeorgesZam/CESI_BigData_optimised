@@ -181,7 +181,7 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: cesi
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cesi
-      STRESS_URL: postgresql://postgres:postgres@localhost:6432/cesi
+      STRESS_URL: postgresql://postgres:postgres@127.0.0.1:6432/cesi
 
     steps:
       - uses: actions/checkout@v4
@@ -253,13 +253,20 @@ jobs:
           pgbouncer -d /tmp/pgbouncer.ini
           for attempt in $(seq 1 30); do
             if pg_isready -h 127.0.0.1 -p 6432 -U postgres -d cesi; then
-              exit 0
+              break
             fi
             sleep 1
           done
-          echo "::error::PgBouncer did not become ready"
-          cat /tmp/pgbouncer.log || true
-          exit 1
+          echo "psql through PgBouncer:"
+          psql "$STRESS_URL" -X -c "select 1"
+          echo "psycopg through PgBouncer:"
+          python - <<'PY'
+          import os
+          import psycopg
+
+          with psycopg.connect(os.environ["STRESS_URL"]) as connection:
+              print(connection.execute("select 1").fetchone())
+          PY
 
       - name: Run the stress test
         env:
