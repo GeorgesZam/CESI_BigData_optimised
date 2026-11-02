@@ -45,6 +45,8 @@
     "refine_tolerance_pct": 10,
     "refine_max_probes": 6,
     "refine_duration_seconds": 5,
-    "min_achieved_rate_pct": 80
+    "min_achieved_rate_pct": 80,
+    "duckdb_processes": 4,
+    "postgres_processes": 4
   }
 }

@@ -31,6 +31,7 @@ from pathlib import Path
 
 import psutil
 import psycopg
+from concurrent.futures import ProcessPoolExecutor
 
 from benchmark import fmt_ms, load_queries, load_thresholds, percentile
 
@@ -178,11 +179,9 @@ async def server_alive(dsn) -> bool:
             pass
 
 
-async def run_level(dsn, deck, clients, duration, think_time, container) -> dict:
+async def run_clients(dsn, deck, clients, duration, think_time):
     latencies: list[float] = []
     errors: list[str] = []
-    sampler = ResourceSampler(container)
-    sampler_task = asyncio.create_task(sampler.run())
     barrier = asyncio.Barrier(clients)
     tasks = [
         asyncio.create_task(
@@ -200,9 +199,39 @@ async def run_level(dsn, deck, clients, duration, think_time, container) -> dict
         for worker_id in range(clients)
     ]
     await asyncio.gather(*tasks)
+    alive = await server_alive(dsn)
+    return latencies, errors, alive
+
+
+def worker_process(dsn, deck, clients, duration, think_time):
+    return asyncio.run(run_clients(dsn, deck, clients, duration, think_time))
+
+
+async def run_level(dsn, deck, clients, duration, think_time, container, executor=None, processes=1) -> dict:
+    latencies: list[float] = []
+    errors: list[str] = []
+    sampler = ResourceSampler(container)
+    sampler_task = asyncio.create_task(sampler.run())
+    if executor is not None and processes > 1:
+        chunks = [
+            clients // processes + (1 if index < clients % processes else 0)
+            for index in range(processes)
+        ]
+        futures = [
+            executor.submit(worker_process, dsn, deck, chunk, duration, think_time)
+            for chunk in chunks
+            if chunk > 0
+        ]
+        alive = True
+        for future in futures:
+            chunk_latencies, chunk_errors, chunk_alive = await asyncio.wrap_future(future)
+            latencies.extend(chunk_latencies)
+            errors.extend(chunk_errors)
+            alive = alive and chunk_alive
+    else:
+        latencies, errors, alive = await run_clients(dsn, deck, clients, duration, think_time)
     sampler.stop()
     await sampler_task
-    alive = await server_alive(dsn)
     total = len(latencies) + len(errors)
     error_rate = (len(errors) / total * 100.0) if total else 0.0
     return {
@@ -310,7 +339,7 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
     return "\n".join(lines) + "\n"
 
 
-async def main_async(args) -> int:
+async def main_async(args, executor, processes) -> int:
     thresholds = load_thresholds(args.thresholds)
     stress = thresholds["stress"]
     queries = load_queries(args.queries)
@@ -321,9 +350,9 @@ async def main_async(args) -> int:
     workload = [by_name[name] for name in stress["workload"]]
     weights = list(stress["workload"].values())
     deck = build_deck(workload, weights)
-
     await run_level(
-        args.dsn, deck, 1, stress["warmup_seconds"], stress["think_time_seconds"], args.container
+        args.dsn, deck, 1, stress["warmup_seconds"], stress["think_time_seconds"], args.container,
+        executor, processes,
     )
 
     levels = []
@@ -336,6 +365,8 @@ async def main_async(args) -> int:
             stress["duration_seconds"],
             stress["think_time_seconds"],
             args.container,
+            executor,
+            processes,
         )
         level["verdict"] = failure_reason(level, stress)
         level["phase"] = "ramp"
@@ -363,6 +394,8 @@ async def main_async(args) -> int:
                     stress.get("refine_duration_seconds", stress["duration_seconds"]),
                     stress["think_time_seconds"],
                     args.container,
+                    executor,
+                    processes,
                 )
                 level["verdict"] = failure_reason(level, stress)
                 level["phase"] = "refine"
@@ -455,6 +488,7 @@ def main() -> int:
     parser.add_argument("--thresholds", type=Path, default=Path("bench/thresholds.json"))
     parser.add_argument("--engine", default="postgres")
     parser.add_argument("--container", default=os.environ.get("PG_CONTAINER"))
+    parser.add_argument("--processes", type=int, default=None)
     parser.add_argument("--commit", default=None)
     parser.add_argument("--commit-message", default="")
     parser.add_argument("--branch", default=None)
@@ -463,7 +497,16 @@ def main() -> int:
     parser.add_argument("--history-entry-out", type=Path, default=Path("bench/history-entry.json"))
     parser.add_argument("--strict", action="store_true", help="exit non-zero when max users is below min_clients")
     args = parser.parse_args()
-    return asyncio.run(main_async(args))
+    thresholds = load_thresholds(args.thresholds)
+    processes = args.processes or thresholds["stress"].get("postgres_processes", 4)
+    executor = ProcessPoolExecutor(max_workers=processes) if processes > 1 else None
+    if executor is not None:
+        executor.submit(abs, 0).result()
+    try:
+        return asyncio.run(main_async(args, executor, processes))
+    finally:
+        if executor is not None:
+            executor.shutdown(wait=True)
 
 
 if __name__ == "__main__":

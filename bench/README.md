@@ -141,9 +141,11 @@ the same mix:
 | `consultations_by_sexe` | 2 |
 | `consultations_per_specialite` | 1 |
 
-The ramp runs the configured levels after a short warm-up. It stops at the first level
-that leaves the SLA or where the harness cannot sustain the offered rate (below 80% of
-one request per second per user):
+The stress client runs in four processes, each with asyncio users through PgBouncer
+(300 server connections), so the client is not limited by a single event loop. The ramp
+runs the configured levels after a short warm-up. It stops at the first level that
+leaves the SLA or where the harness cannot sustain the offered rate (below 80% of one
+request per second per user):
 
 - the server stops answering (crash, OOM kill, refused connection);
 - memory reaches 90% of the container limit;
