@@ -21,14 +21,27 @@ benchmark exists to measure those trade-offs instead of guessing.
 
 What those axes mean for this dataset:
 
-| Axis | Current situation | Typical levers |
+| Axis | Current situation | What was applied |
 | --- | --- | --- |
-| Smaller data | 352 MB restored; wide `varchar` columns; dates stored as text; two scratch tables (`AAAA`, `date`) not referenced by any foreign key | real `date`/`integer` types, shorter keys, drop unused tables |
-| Faster queries | only primary keys are indexed; joins on foreign keys and lookups on `Num_Secu` scan whole tables | indexes on join, date and search columns; fresh statistics; query rewrites |
-| More concurrent users | each full scan holds CPU and shared buffers for its session | fewer scans, smaller rows, connection pooling, lower `work_mem` per session |
+| Smaller data | 369 MB restored; wide `varchar` columns; dates stored as text in bronze | real `date`/`integer`/`numeric` types in silver; separate bronze, silver and gold schemas |
+| Faster queries | the raw dump has only primary keys | indexes on join, date and search columns in silver; precomputed marts in gold; three queries pre-aggregate before joining |
+| More concurrent users | each full scan held CPU and shared buffers for its session | serving reads small gold marts and indexed silver tables; the heavy scans happen once in the ETL |
 
-None of these levers is applied yet. The benchmark first records where the database
-stands, so each later change can be judged on measured numbers.
+The layers are built before every measurement. The database grows to about 1.2 GB
+because bronze, silver and gold keep the raw, cleaned and modeled data side by side.
+
+## Medallion architecture
+
+| Layer | Schema | Content |
+| --- | --- | --- |
+| Bronze | `bronze` | Raw dump, unchanged. The original tables are moved out of `public` and their row counts are logged. |
+| Silver | `silver` | Typed and cleaned: dates parsed, numerics cast, strings trimmed, keys and foreign keys enforced, orphan rows filtered, indexes on join, date and search columns. |
+| Gold | `gold` | Star schema (`dim_*`, `fact_*`) and business marts (`mart_*`) used by the queries. |
+
+`sql/00_bronze.sql`, `sql/10_silver.sql`, `sql/20_gold.sql` and `sql/30_analyze.sql`
+build the layers. `bench/build_layers.py` runs them and reports the time of each step
+in the job summary. Analytics queries read `gold.mart_*`; point lookups read indexed
+`silver.*` tables.
 
 ## Dataset
 
@@ -48,8 +61,9 @@ Actions minutes), against a PostgreSQL 14 service.
 
 **Latency benchmark** (`bench/benchmark.py`):
 
-- runs the 12 queries from the `queries/` folder: aggregations, multi-table joins,
-  point lookups on unindexed keys, and a free-text search;
+- builds the bronze, silver and gold layers and reports the ETL time;
+- runs the 12 queries from the `queries/` folder against `gold` marts and indexed
+  `silver` tables;
 - reports median and p95 wall time, result row count, budget status, and the
   sequential scans chosen by the planner;
 - compares the run to `bench/baseline.json`, so each iteration shows whether the
@@ -77,7 +91,9 @@ GitHub Pages through `gh-pages`, one chart per series.
 
 ```
 .github/workflows/db-performance.yml   CI: latency benchmark and stress test
+sql/                                   bronze, silver and gold build scripts
 queries/                               one SQL file per measured query
+bench/build_layers.py                  ETL runner and per-layer timing
 bench/benchmark.py                     latency measurement and acceptance criteria
 bench/stress.py                        concurrency ramp and failure detection
 bench/thresholds.json                  acceptance criteria and stress settings
