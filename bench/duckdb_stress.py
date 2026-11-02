@@ -128,6 +128,9 @@ def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limi
         "errors": len(errors),
         "error_rate_pct": round(error_rate, 2),
         "throughput": round(len(latencies) / duration, 1),
+        "achieved_rate_pct": round(
+            (len(latencies) / duration) / (clients / think_time if think_time > 0 else clients) * 100.0, 1
+        ) if clients else 0.0,
         "p50_ms": round(percentile(latencies, 0.50), 1) if latencies else None,
         "p95_ms": round(percentile(latencies, 0.95), 1) if latencies else None,
         "p99_ms": round(percentile(latencies, 0.99), 1) if latencies else None,
@@ -146,6 +149,9 @@ def failure_reason(level: dict, stress: dict) -> str:
     cpu = level.get("cpu_avg_pct")
     if cpu is not None and cpu >= stress["max_cpu_pct"]:
         return "cpu"
+    rate = level.get("achieved_rate_pct")
+    if rate is not None and rate < stress.get("min_achieved_rate_pct", 80):
+        return "rate_limit"
     if level["error_rate_pct"] > stress["max_error_rate_pct"]:
         return "error_rate"
     if level["p95_ms"] is not None and level["p95_ms"] > stress["p95_ms"]:

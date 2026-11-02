@@ -95,6 +95,7 @@ pg_restore -h localhost -U postgres -d cesi --no-owner --no-privileges \
 | CPU | below 90% |
 | Memory | below 90% |
 | Max users | at least 8 within the SLA |
+| Achieved rate | at least 80% of one request per second per user |
 
 Budgets come from the stored baseline, so they tighten as the database improves. The
 SQL `-- budget_ms` line is only a fallback when no baseline exists. `--strict` makes
@@ -140,8 +141,9 @@ the same mix:
 | `consultations_by_sexe` | 2 |
 | `consultations_per_specialite` | 1 |
 
-The ramp runs 1, 2, 4, 8, 16, 32 and 64 users, 20 seconds per level after a 3-second
-warm-up. It stops at the first level that leaves the SLA:
+The ramp runs the configured levels after a short warm-up. It stops at the first level
+that leaves the SLA or where the harness cannot sustain the offered rate (below 80% of
+one request per second per user):
 
 - the server stops answering (crash, OOM kill, refused connection);
 - memory reaches 90% of the container limit;
