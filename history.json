@@ -1462,5 +1462,101 @@
         "verdict": "p95"
       }
     ]
+  },
+  {
+    "commit": "628935d92127e84fb1a61448866ae57d4b3a1d72",
+    "commit_message": "No pool cap (4096 threads), lazy connections, faster 5s ramp",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-11-02T15:39:33Z",
+    "max_users": 488,
+    "break_users": 512,
+    "interval_pct": 4.9,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 31.9,
+    "memory_pct": 28.6,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 9.2,
+        "p99_ms": 9.4,
+        "cpu_pct": 1.1,
+        "memory_pct": 6.3,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 28.5,
+        "p99_ms": 35.1,
+        "cpu_pct": 2.9,
+        "memory_pct": 7.6,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 122.7,
+        "p99_ms": 128.5,
+        "cpu_pct": 10.2,
+        "memory_pct": 12.4,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 320,
+        "p95_ms": 302.0,
+        "p99_ms": 337.9,
+        "cpu_pct": 26.9,
+        "memory_pct": 39.0,
+        "error_rate_pct": 0.0,
+        "throughput": 289.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 416,
+        "p95_ms": 375.5,
+        "p99_ms": 445.3,
+        "cpu_pct": 27.7,
+        "memory_pct": 53.2,
+        "error_rate_pct": 0.0,
+        "throughput": 349.8,
+        "verdict": "pass"
+      },
+      {
+        "users": 464,
+        "p95_ms": 414.5,
+        "p99_ms": 493.6,
+        "cpu_pct": 41.2,
+        "memory_pct": 69.6,
+        "error_rate_pct": 0.0,
+        "throughput": 390.2,
+        "verdict": "pass"
+      },
+      {
+        "users": 488,
+        "p95_ms": 443.1,
+        "p99_ms": 527.4,
+        "cpu_pct": 42.0,
+        "memory_pct": 85.5,
+        "error_rate_pct": 0.0,
+        "throughput": 394.4,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 530.6,
+        "p99_ms": 612.7,
+        "cpu_pct": 31.9,
+        "memory_pct": 28.6,
+        "error_rate_pct": 0.0,
+        "throughput": 409.6,
+        "verdict": "p95"
+      }
+    ]
   }
 ]
