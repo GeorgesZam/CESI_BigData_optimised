@@ -12,12 +12,11 @@ layer. The measurement itself does not change data, indexes or queries.
 
 ## DuckDB harness
 
-On the optimized branch, the stress test uses the same virtual-user model as
-PostgreSQL: lightweight asyncio clients and a fixed pool of 90 execution threads, one
-read-only DuckDB connection each. DuckDB's buffer manager caches the database file in
-the same process, with `memory_limit=2GB` and `threads=4`, matching the PostgreSQL
-container. The pool plays the role of PgBouncer's 90 server connections, so the
-comparison measures serving capacity instead of one Python thread per user.
+On the optimized branch, each virtual user gets its own thread and its own read-only
+DuckDB connection, with no pool or thread cap. DuckDB's buffer manager caches the
+database file in the same process, with `memory_limit=2GB` and the default 4 threads.
+This maximises the number of users a single process can drive, at the cost of a
+higher client CPU than PgBouncer's pooled model.
 
 ## Files
 

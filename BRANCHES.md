@@ -4,10 +4,10 @@
   they are data transformation tools, not serving engines.
 - `optimized` — DuckDB. Same queries, same workload, same max-users test. The DuckDB
   file is built from the PostgreSQL dump once, before the measurement. The stress
-  harness mirrors PgBouncer: asyncio users and a pool of 90 execution threads, each
-  with its own read-only DuckDB connection, with the buffer manager caching the file
-  (`memory_limit=2GB`, `threads=4`). The Rust harness in `rust/` measures the same
-  queries against PostgreSQL; the DuckDB Rust engine is the next step.
+  harness gives each user its own thread and read-only DuckDB connection, with no
+  pool cap; the buffer manager caches the file (`memory_limit=2GB`, 4 threads). The
+  Rust harness in `rust/` measures the same queries against PostgreSQL; the DuckDB
+  Rust engine is the next step.
 
 Both branches write to the same single page: `gh-pages/index.html`, with one point per
 run, the maximum number of users, and the blocking reason (CPU, memory, response time

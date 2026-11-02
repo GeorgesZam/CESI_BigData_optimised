@@ -1,36 +1,34 @@
 #!/usr/bin/env python3
-"""Max-users stress test for DuckDB under the same conditions as PostgreSQL.
+"""Max-users stress test for DuckDB.
 
-PostgreSQL is served through PgBouncer: many lightweight async clients share a fixed
-pool of 90 server connections. This harness mirrors that model: virtual users are
-asyncio tasks, and a fixed pool of 90 threads, each with its own read-only DuckDB
-connection, executes the queries. DuckDB's buffer manager caches the database file
-inside the same process, with memory_limit=2GB and threads=4, matching the 4 vCPU and
-2GB container used by PostgreSQL.
+One user sends one request per second, drawing from the same weighted deck as the
+PostgreSQL test. Each user gets its own read-only DuckDB connection. The ramp stops
+at the first level where CPU, memory, response time or errors leave the SLA.
+
+The report format is shared with the PostgreSQL stress test, and the result is
+appended to the same gh-pages history with engine "duckdb".
 """
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import os
 import statistics
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
 import psutil
 
-from benchmark import load_queries, load_thresholds, percentile
+from benchmark import fmt_ms, load_queries, load_thresholds, percentile
 from stress import REASONS, build_deck, render_markdown
 
 
-class Resources(threading.Thread):
+class ResourceSampler(threading.Thread):
     def __init__(self, memory_limit_bytes: int):
         super().__init__(daemon=True)
         self.memory_limit_bytes = memory_limit_bytes
@@ -58,76 +56,67 @@ class Resources(threading.Thread):
         }
 
 
-def parse_bytes(text: str) -> int:
-    value = text.strip().upper()
-    if value.endswith("GB"):
-        return int(float(value[:-2]) * 1024**3)
-    if value.endswith("MB"):
-        return int(float(value[:-2]) * 1024**2)
-    return int(value)
+def worker(db, deck, offset, deadline, think_time, memory_limit, latencies, errors, lock):
+    try:
+        connection = duckdb.connect(db, read_only=True)
+        connection.execute(f"SET memory_limit='{memory_limit}'")
+    except Exception as exc:
+        with lock:
+            errors.append(f"connect:{type(exc).__name__}")
+        return
 
-
-def build_executor(db: str, memory_limit: str, threads: int, size: int):
-    local = threading.local()
-
-    def execute(sql: str):
-        connection = getattr(local, "connection", None)
-        if connection is None:
-            connection = duckdb.connect(db, read_only=True)
-            connection.execute(f"SET memory_limit='{memory_limit}'")
-            connection.execute(f"SET threads={threads}")
-            local.connection = connection
-        return connection.execute(sql).fetchall()
-
-    executor = ThreadPoolExecutor(max_workers=size, thread_name_prefix="duckdb")
-    futures = [executor.submit(execute, "SELECT 1") for _ in range(min(size, 8))]
-    for future in futures:
-        future.result()
-    return executor, execute
-
-
-async def worker(loop, executor, execute, deck, offset, duration, think_time, latencies, errors):
-    deadline = time.perf_counter() + duration
     index = offset
-    while time.perf_counter() < deadline:
-        query = deck[index % len(deck)]
-        index += 1
-        started = time.perf_counter()
-        try:
-            await loop.run_in_executor(executor, execute, query["sql"])
-            latencies.append((time.perf_counter() - started) * 1000.0)
-        except duckdb.OutOfMemoryException:
-            errors.append("out_of_memory")
-            return
-        except Exception as exc:
-            errors.append(type(exc).__name__)
-        remaining = deadline - time.perf_counter()
-        if remaining > 0:
-            await asyncio.sleep(min(think_time, remaining))
+    try:
+        while time.perf_counter() < deadline:
+            query = deck[index % len(deck)]
+            index += 1
+            started = time.perf_counter()
+            try:
+                connection.execute(query["sql"]).fetchall()
+                with lock:
+                    latencies.append((time.perf_counter() - started) * 1000.0)
+            except duckdb.OutOfMemoryException:
+                with lock:
+                    errors.append("out_of_memory")
+                return
+            except Exception as exc:
+                with lock:
+                    errors.append(type(exc).__name__)
+            remaining = deadline - time.perf_counter()
+            if remaining > 0:
+                time.sleep(min(think_time, remaining))
+    finally:
+        connection.close()
 
 
-async def run_level(loop, executor, execute, deck, clients, duration, think_time, memory_limit_bytes) -> dict:
+def run_level(db, deck, clients, duration, think_time, memory_limit, memory_limit_bytes) -> dict:
     latencies: list[float] = []
     errors: list[str] = []
-    sampler = Resources(memory_limit_bytes)
+    lock = threading.Lock()
+    sampler = ResourceSampler(memory_limit_bytes)
     sampler.start()
-    tasks = [
-        asyncio.create_task(
-            worker(
-                loop,
-                executor,
-                execute,
+    deadline = time.perf_counter() + duration
+    threads = [
+        threading.Thread(
+            target=worker,
+            args=(
+                db,
                 deck,
                 (worker_id * 13) % len(deck),
-                duration,
+                deadline,
                 think_time,
+                memory_limit,
                 latencies,
                 errors,
-            )
+                lock,
+            ),
         )
         for worker_id in range(clients)
     ]
-    await asyncio.gather(*tasks)
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
     sampler.stop()
     sampler.join()
 
@@ -166,20 +155,55 @@ def failure_reason(level: dict, stress: dict) -> str:
     return "pass"
 
 
-async def main_async(args, executor, execute, stress, deck, memory_limit_bytes) -> int:
-    loop = asyncio.get_running_loop()
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--db", type=Path, required=True)
+    parser.add_argument("--queries", type=Path, default=Path("queries"))
+    parser.add_argument("--thresholds", type=Path, default=Path("bench/thresholds.json"))
+    parser.add_argument("--engine", default="duckdb")
+    parser.add_argument("--commit", default=None)
+    parser.add_argument("--commit-message", default="")
+    parser.add_argument("--branch", default=None)
+    parser.add_argument("--memory-limit", default="2GB")
+    parser.add_argument("--md-out", type=Path, default=Path("bench/stress-report.md"))
+    parser.add_argument("--json-out", type=Path, default=Path("bench/stress.json"))
+    parser.add_argument("--history-entry-out", type=Path, default=Path("bench/history-entry.json"))
+    parser.add_argument("--strict", action="store_true")
+    args = parser.parse_args()
 
-    await run_level(
-        loop, executor, execute, deck, 1, stress["warmup_seconds"],
-        stress["think_time_seconds"], memory_limit_bytes,
+    thresholds = load_thresholds(args.thresholds)
+    stress = thresholds["stress"]
+    queries = load_queries(args.queries)
+    by_name = {query["name"]: query for query in queries}
+    unknown = [name for name in stress["workload"] if name not in by_name]
+    if unknown:
+        raise SystemExit(f"unknown queries in the stress workload: {', '.join(unknown)}")
+    workload = [by_name[name] for name in stress["workload"]]
+    weights = list(stress["workload"].values())
+    deck = build_deck(workload, weights)
+
+    memory_limit_bytes = 2 * 1024**3
+    run_level(
+        str(args.db),
+        deck,
+        1,
+        stress["warmup_seconds"],
+        stress["think_time_seconds"],
+        args.memory_limit,
+        memory_limit_bytes,
     )
 
     levels = []
     breaking = None
     for clients in stress["clients"]:
-        level = await run_level(
-            loop, executor, execute, deck, clients, stress["duration_seconds"],
-            stress["think_time_seconds"], memory_limit_bytes,
+        level = run_level(
+            str(args.db),
+            deck,
+            clients,
+            stress["duration_seconds"],
+            stress["think_time_seconds"],
+            args.memory_limit,
+            memory_limit_bytes,
         )
         level["verdict"] = failure_reason(level, stress)
         level["phase"] = "ramp"
@@ -200,10 +224,14 @@ async def main_async(args, executor, execute, stress, deck, memory_limit_bytes) 
                 probe = int(round((low + high) / 2))
                 if probe <= low or probe >= high:
                     break
-                level = await run_level(
-                    loop, executor, execute, deck, probe,
+                level = run_level(
+                    str(args.db),
+                    deck,
+                    probe,
                     stress.get("refine_duration_seconds", stress["duration_seconds"]),
-                    stress["think_time_seconds"], memory_limit_bytes,
+                    stress["think_time_seconds"],
+                    args.memory_limit,
+                    memory_limit_bytes,
                 )
                 level["verdict"] = failure_reason(level, stress)
                 level["phase"] = "refine"
@@ -215,7 +243,8 @@ async def main_async(args, executor, execute, stress, deck, memory_limit_bytes) 
                     high = probe
                     breaking = level
             candidates = [
-                level for level in levels
+                level
+                for level in levels
                 if level["clients"] == high and level["verdict"] != "pass"
             ]
             if candidates:
@@ -287,47 +316,6 @@ async def main_async(args, executor, execute, stress, deck, memory_limit_bytes) 
         )
         return 1
     return 0
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--db", type=Path, required=True)
-    parser.add_argument("--queries", type=Path, default=Path("queries"))
-    parser.add_argument("--thresholds", type=Path, default=Path("bench/thresholds.json"))
-    parser.add_argument("--engine", default="duckdb")
-    parser.add_argument("--commit", default=None)
-    parser.add_argument("--commit-message", default="")
-    parser.add_argument("--branch", default=None)
-    parser.add_argument("--memory-limit", default="2GB")
-    parser.add_argument("--threads", type=int, default=4)
-    parser.add_argument("--pool", type=int, default=None)
-    parser.add_argument("--md-out", type=Path, default=Path("bench/stress-report.md"))
-    parser.add_argument("--json-out", type=Path, default=Path("bench/stress.json"))
-    parser.add_argument("--history-entry-out", type=Path, default=Path("bench/history-entry.json"))
-    parser.add_argument("--strict", action="store_true")
-    args = parser.parse_args()
-
-    thresholds = load_thresholds(args.thresholds)
-    stress = thresholds["stress"]
-    pool = args.pool or stress.get("duckdb_connections", 90)
-    memory_limit_bytes = parse_bytes(args.memory_limit)
-
-    queries = load_queries(args.queries)
-    by_name = {query["name"]: query for query in queries}
-    unknown = [name for name in stress["workload"] if name not in by_name]
-    if unknown:
-        raise SystemExit(f"unknown queries in the stress workload: {', '.join(unknown)}")
-    workload = [by_name[name] for name in stress["workload"]]
-    weights = list(stress["workload"].values())
-    deck = build_deck(workload, weights)
-
-    executor, execute = build_executor(str(args.db), args.memory_limit, args.threads, pool)
-    try:
-        return asyncio.run(
-            main_async(args, executor, execute, stress, deck, memory_limit_bytes)
-        )
-    finally:
-        executor.shutdown(wait=True)
 
 
 if __name__ == "__main__":
