@@ -7,12 +7,14 @@ Two measurements run on demand, in separate jobs:
 - **Concurrency stress test** — a weighted query mix with a growing number of
   clients, until the database fails or leaves the SLA.
 
-Neither job creates an index, rewrites a query or changes data. The database is only
-restored and measured.
+Both jobs build the bronze, silver and gold layers first, then measure the serving
+layer. The measurement itself does not change data, indexes or queries.
 
 ## Files
 
+- `../sql/` — bronze, silver and gold build scripts.
 - `../queries/` — one `.sql` file per measured query, with its budget.
+- `build_layers.py` — runs the SQL files and reports the time of each layer.
 - `benchmark.py` — latency measurement, acceptance criteria, report and baseline.
 - `stress.py` — concurrency ramp, failure detection, stress report.
 - `thresholds.json` — acceptance criteria and stress settings.
@@ -24,9 +26,10 @@ restored and measured.
 
 `.github/workflows/db-performance.yml` runs two jobs:
 
-1. `benchmark` — PostgreSQL 14 service, restore, latency measurement, report.
+1. `benchmark` — PostgreSQL 14 service, restore, medallion build, latency
+   measurement, report.
 2. `stress` — a second PostgreSQL 14 service capped at 2 GB of memory, restore,
-   concurrency ramp.
+   medallion build, concurrency ramp.
 
 Both publish a report in the job summary (**Actions** → run → **Summary**) and as
 artifacts. The workflow only runs on manual dispatch, to avoid spending Actions
@@ -78,7 +81,7 @@ pg_restore -h localhost -U postgres -d cesi --no-owner --no-privileges \
 | Latency budget | 2.5x the baseline median, rounded to 50 ms, floor 100 ms |
 | Regression vs baseline | at most +15% and +1 ms |
 | Non-empty results | at least one row per query |
-| Database size | at most 400 MB |
+| Database size | at most 1600 MB |
 | Dump size | at most 50 MB |
 | CPU | below 90% |
 | Memory | below 90% |
@@ -87,6 +90,21 @@ pg_restore -h localhost -U postgres -d cesi --no-owner --no-privileges \
 Budgets come from the stored baseline, so they tighten as the database improves. The
 SQL `-- budget_ms` line is only a fallback when no baseline exists. `--strict` makes
 the job fail on any FAIL; without it the job reports and stays green.
+
+## Medallion layers
+
+Before each measurement the workflow runs `bench/build_layers.py`:
+
+| Step | Layer | Content |
+| --- | --- | --- |
+| `00_bronze.sql` | `bronze` | Raw dump moved out of `public`, row counts logged |
+| `10_silver.sql` | `silver` | Typed, cleaned, constrained tables; indexes on join, date and search columns |
+| `20_gold.sql` | `gold` | Dimensions, facts and the business marts used by the queries |
+| `30_analyze.sql` | — | Planner statistics |
+
+The build time of each step is printed in the job summary. Analytics queries read
+`gold.mart_*`; point lookups read indexed `silver.*` tables. The database grows to
+about 1.2 GB because the three layers keep raw, cleaned and modeled data.
 
 ## What a user does
 
