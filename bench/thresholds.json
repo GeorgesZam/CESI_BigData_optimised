@@ -45,6 +45,6 @@
     "refine_tolerance_pct": 10,
     "refine_max_probes": 6,
     "refine_duration_seconds": 5,
-    "duckdb_connections": 4096
+    "min_achieved_rate_pct": 80
   }
 }

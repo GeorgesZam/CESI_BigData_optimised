@@ -2,13 +2,21 @@
 
 Two measurements run on demand, in separate jobs:
 
-- **Latency benchmark** — the 12 queries from `../queries/`, one at a time, median
+- **Latency benchmark** — the 14 queries from `../queries/`, one at a time, median
   and p95.
 - **Concurrency stress test** — a weighted query mix with a growing number of
   clients, until the database fails or leaves the SLA.
 
 Both jobs build the bronze, silver and gold layers first, then measure the serving
 layer. The measurement itself does not change data, indexes or queries.
+
+## DuckDB harness
+
+On the optimized branch, each virtual user gets its own thread and its own read-only
+DuckDB connection, with no pool or thread cap. DuckDB's buffer manager caches the
+database file in the same process, with `memory_limit=2GB` and the default 4 threads.
+This maximises the number of users a single process can drive, at the cost of a
+higher client CPU than PgBouncer's pooled model.
 
 ## Files
 
@@ -17,6 +25,7 @@ layer. The measurement itself does not change data, indexes or queries.
 - `build_layers.py` — runs the SQL files and reports the time of each layer.
 - `benchmark.py` — latency measurement, acceptance criteria, report and baseline.
 - `stress.py` — concurrency ramp, failure detection, stress report.
+- `duckdb_stress.py` — DuckDB ramp with the same virtual-user model and a 90-slot pool.
 - `thresholds.json` — acceptance criteria and stress settings.
 - `baseline.json` — reference timings recorded on GitHub Actions.
 - `publish_history.py` — appends a run to the gh-pages history.
@@ -61,12 +70,6 @@ The stress job adds `--memory=2g --memory-swap=2g`, so memory exhaustion is a
 possible failure mode. The dump is restored with
 `pg_restore -j 4 --no-owner --no-privileges --exit-on-error`.
 
-The stress job also runs PgBouncer on port 6543 in transaction mode: up to 3000
-client connections share 50 server connections. The stress client connects through
-the pooler, so PostgreSQL's default `max_connections = 100` is no longer the limit.
-The benchmark job keeps a direct connection, because it measures query latency, not
-connection handling.
-
 Locally, any PostgreSQL 14 instance works. With Docker:
 
 ```bash
@@ -92,6 +95,7 @@ pg_restore -h localhost -U postgres -d cesi --no-owner --no-privileges \
 | CPU | below 90% |
 | Memory | below 90% |
 | Max users | at least 8 within the SLA |
+| Achieved rate | at least 80% of one request per second per user |
 
 Budgets come from the stored baseline, so they tighten as the database improves. The
 SQL `-- budget_ms` line is only a fallback when no baseline exists. `--strict` makes
@@ -137,8 +141,9 @@ the same mix:
 | `consultations_by_sexe` | 2 |
 | `consultations_per_specialite` | 1 |
 
-The ramp runs 1, 2, 4, 8, 16, 32 and 64 users, 20 seconds per level after a 3-second
-warm-up. It stops at the first level that leaves the SLA:
+The ramp runs the configured levels after a short warm-up. It stops at the first level
+that leaves the SLA or where the harness cannot sustain the offered rate (below 80% of
+one request per second per user):
 
 - the server stops answering (crash, OOM kill, refused connection);
 - memory reaches 90% of the container limit;

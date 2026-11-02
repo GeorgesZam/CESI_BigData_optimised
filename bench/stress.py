@@ -41,6 +41,7 @@ REASONS = {
     "error_rate": "too many errors",
     "connections": "connection limit reached",
     "client_limit": "load generator limit (file descriptors)",
+    "rate_limit": "load generator could not sustain the request rate",
     "p95": "response time too slow (p95)",
     "p99": "response time too slow (p99)",
     "none": "no failure",
@@ -210,6 +211,9 @@ async def run_level(dsn, deck, clients, duration, think_time, container) -> dict
         "errors": len(errors),
         "error_rate_pct": round(error_rate, 2),
         "throughput": round(len(latencies) / duration, 1),
+        "achieved_rate_pct": round(
+            (len(latencies) / duration) / (clients / think_time if think_time > 0 else clients) * 100.0, 1
+        ) if clients else 0.0,
         "p50_ms": round(percentile(latencies, 0.50), 1) if latencies else None,
         "p95_ms": round(percentile(latencies, 0.95), 1) if latencies else None,
         "p99_ms": round(percentile(latencies, 0.99), 1) if latencies else None,
@@ -232,6 +236,9 @@ def failure_reason(level: dict, stress: dict) -> str:
         return "connections"
     if "client_limit" in level["errors_sample"]:
         return "client_limit"
+    rate = level.get("achieved_rate_pct")
+    if rate is not None and rate < stress.get("min_achieved_rate_pct", 80):
+        return "rate_limit"
     if level["error_rate_pct"] > stress["max_error_rate_pct"]:
         return "error_rate"
     if level["p95_ms"] is not None and level["p95_ms"] > stress["p95_ms"]:
@@ -259,6 +266,10 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
         f"until the gap is <= {stress.get('refine_tolerance_pct', 10)}%"
     )
     lines.append("")
+    lines.append(f"Each user should produce one request per second. A level below "
+                 f"{stress.get('min_achieved_rate_pct', 80)}% of the offered rate is a load generator limit, "
+                 "not a database limit.")
+    lines.append("")
     verdict = max_clients_ok >= stress["min_clients"]
     if breaking is None:
         lines.append(f"**No failure up to {levels[-1]['clients']} users.**")
@@ -279,14 +290,15 @@ def render_markdown(levels: list[dict], stress: dict, max_clients_ok: int, break
         lines.append(f"Max users within SLA: **{max_clients_ok}** — "
                      f"{'PASS' if verdict else 'FAIL'}")
     lines.append("")
-    lines.append("| Users | Requests | Throughput (req/s) | p95 | p99 | CPU | Memory | Errors | Verdict |")
-    lines.append("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
+    lines.append("| Users | Requests | Throughput (req/s) | Rate | p95 | p99 | CPU | Memory | Errors | Verdict |")
+    lines.append("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
     for level in levels:
         def value(key, suffix=""):
             item = level.get(key)
             return "-" if item is None else f"{item}{suffix}"
         lines.append(
             f"| {level['clients']} | {level['transactions']} | {level['throughput']} | "
+            f"{level.get('achieved_rate_pct', 0):.0f}% | "
             f"{fmt_ms(level['p95_ms']) if level['p95_ms'] is not None else '-'} | "
             f"{fmt_ms(level['p99_ms']) if level['p99_ms'] is not None else '-'} | "
             f"{value('cpu_avg_pct', '%')} | {value('memory_max_pct', '%')} | "
