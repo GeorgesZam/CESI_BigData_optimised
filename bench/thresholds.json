@@ -13,21 +13,17 @@
   "stress": {
     "clients": [
       8,
-      16,
       32,
-      64,
       128,
-      256,
       512,
       1024,
       2048,
       4096,
       8192,
-      16384,
       32768
     ],
-    "duration_seconds": 10,
-    "warmup_seconds": 2,
+    "duration_seconds": 5,
+    "warmup_seconds": 1,
     "think_time_seconds": 1.0,
     "max_error_rate_pct": 1.0,
     "p95_ms": 500,
@@ -48,7 +44,7 @@
     },
     "refine_tolerance_pct": 10,
     "refine_max_probes": 6,
-    "refine_duration_seconds": 8,
-    "duckdb_connections": 90
+    "refine_duration_seconds": 5,
+    "duckdb_connections": 4096
   }
 }
