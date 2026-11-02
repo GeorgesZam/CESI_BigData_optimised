@@ -88,6 +88,14 @@ jobs:
           pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
           psql -X -c 'select count(*) as consultations from public."Consultation";'
 
+      - name: Build medallion layers
+        run: |
+          python bench/build_layers.py \
+            --dsn "$DATABASE_URL" \
+            --json-out bench/etl.json \
+            --md-out bench/etl-report.md
+          cat bench/etl-report.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run the benchmark
         run: |
           set -euo pipefail
@@ -140,6 +148,8 @@ jobs:
             bench/report.md
             bench/results.json
             bench/baseline.json
+            bench/etl.json
+            bench/etl-report.md
           if-no-files-found: warn
 
   stress:
@@ -203,6 +213,14 @@ jobs:
         run: |
           set -euo pipefail
           pg_restore -j 4 --no-owner --no-privileges --exit-on-error -d "$PGDATABASE" "$DUMP_FILE"
+
+      - name: Build medallion layers
+        run: |
+          python bench/build_layers.py \
+            --dsn "$DATABASE_URL" \
+            --json-out bench/etl.json \
+            --md-out bench/etl-report.md
+          cat bench/etl-report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Find the PostgreSQL container
         run: |
@@ -272,4 +290,6 @@ jobs:
             bench/stress-report.md
             bench/stress.json
             bench/history-entry.json
+            bench/etl.json
+            bench/etl-report.md
           if-no-files-found: warn
