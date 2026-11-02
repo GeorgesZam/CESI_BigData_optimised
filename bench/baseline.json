@@ -1,59 +1,63 @@
 {
-  "created_at": "2026-11-02 14:14:56 UTC",
-  "commit": "0e15d970ba2566253693f3cc09e18d53081dc29e",
-  "queries_sha256": "f68caf25bab3b9395baf234490bef8c83e401a5a718b91d5ac9413bc2f75ad2c",
+  "created_at": "2026-11-02 14:22:50 UTC",
+  "commit": "8473cdf0d743baac1eb924d1f72eb21e94c38ac1",
+  "queries_sha256": "fb4005d6eea81993c85c61ae62d29400c707d18db41be37ff0ce645db50162d2",
   "queries": {
     "consultations_per_month": {
-      "median_ms": 0.26,
-      "p95_ms": 0.3
+      "median_ms": 0.09,
+      "p95_ms": 0.11
     },
     "consultations_by_sexe": {
-      "median_ms": 0.24,
-      "p95_ms": 0.24
+      "median_ms": 0.07,
+      "p95_ms": 0.09
     },
     "top_diagnostics": {
-      "median_ms": 1.41,
-      "p95_ms": 1.41
+      "median_ms": 0.65,
+      "p95_ms": 0.67
     },
     "consultations_per_specialite": {
-      "median_ms": 0.23,
-      "p95_ms": 0.24
+      "median_ms": 0.09,
+      "p95_ms": 0.09
     },
     "top_medicaments_prescrits": {
-      "median_ms": 1.35,
-      "p95_ms": 1.37
+      "median_ms": 0.62,
+      "p95_ms": 0.62
     },
     "patients_with_many_consultations": {
-      "median_ms": 0.69,
-      "p95_ms": 0.69
+      "median_ms": 0.31,
+      "p95_ms": 0.32
     },
     "consultations_by_mutuelle": {
-      "median_ms": 0.24,
-      "p95_ms": 0.28
+      "median_ms": 0.08,
+      "p95_ms": 0.08
     },
     "consultation_duration_by_weekday": {
-      "median_ms": 0.23,
-      "p95_ms": 0.24
+      "median_ms": 0.08,
+      "p95_ms": 0.1
     },
     "patient_by_num_secu": {
-      "median_ms": 0.23,
-      "p95_ms": 0.25
+      "median_ms": 0.08,
+      "p95_ms": 0.09
     },
     "consultations_of_one_patient": {
-      "median_ms": 0.27,
-      "p95_ms": 0.3
+      "median_ms": 0.09,
+      "p95_ms": 0.12
     },
     "prescriptions_of_one_consultation": {
-      "median_ms": 0.35,
-      "p95_ms": 0.41
+      "median_ms": 0.15,
+      "p95_ms": 0.18
     },
     "medicament_search": {
-      "median_ms": 0.55,
-      "p95_ms": 0.57
+      "median_ms": 0.23,
+      "p95_ms": 0.26
     },
     "fact_consultations_per_year": {
-      "median_ms": 8.88,
-      "p95_ms": 9.05
+      "median_ms": 4.36,
+      "p95_ms": 4.57
+    },
+    "fact_consultations_of_patient": {
+      "median_ms": 4.22,
+      "p95_ms": 4.44
     }
   }
 }
