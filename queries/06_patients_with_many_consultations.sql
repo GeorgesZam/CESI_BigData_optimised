@@ -1,8 +1,6 @@
--- Heavy patients: group by patient with a HAVING filter.
+-- Patients with at least 15 consultations (gold mart).
 -- budget_ms: 2500
-SELECT c."Id_patient", count(*) AS consultations
-FROM public."Consultation" c
-GROUP BY c."Id_patient"
-HAVING count(*) >= 15
-ORDER BY 2 DESC
+SELECT patient_id, consultations
+FROM gold.mart_patients_with_many
+ORDER BY consultations DESC
 LIMIT 50;

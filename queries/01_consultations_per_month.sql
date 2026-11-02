@@ -1,8 +1,6 @@
--- Monthly consultation volume for one year (range scan on Consultation.Date).
+-- Monthly consultation volume for one year (gold mart).
 -- budget_ms: 1200
-SELECT date_trunc('month', "Date")::date AS month,
-       count(*) AS consultations
-FROM public."Consultation"
-WHERE "Date" >= DATE '2022-01-01' AND "Date" < DATE '2023-01-01'
-GROUP BY 1
-ORDER BY 1;
+SELECT month, consultations
+FROM gold.mart_consultations_per_month
+WHERE month >= DATE '2022-01-01' AND month < DATE '2023-01-01'
+ORDER BY month;

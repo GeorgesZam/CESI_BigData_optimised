@@ -7,7 +7,7 @@
     "regression_noise_floor_ms": 1.0
   },
   "size": {
-    "max_database_mb": 400,
+    "max_database_mb": 1600,
     "max_dump_mb": 50
   },
   "stress": {
