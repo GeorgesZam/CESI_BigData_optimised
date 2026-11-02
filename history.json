@@ -564,5 +564,101 @@
         "verdict": "cpu"
       }
     ]
+  },
+  {
+    "commit": "cbef02884337cba4f0835b12d013f8027eb233f0",
+    "commit_message": "Medallion: bronze, silver and gold layers",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-11-02T13:59:41Z",
+    "max_users": 104,
+    "break_users": 112,
+    "interval_pct": 7.7,
+    "reason": "error_rate",
+    "reason_text": "too many errors",
+    "cpu_pct": 5.5,
+    "memory_pct": 19.3,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 3.7,
+        "p99_ms": 7.3,
+        "cpu_pct": 1.3,
+        "memory_pct": 10.6,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 8.2,
+        "p99_ms": 12.5,
+        "cpu_pct": 1.6,
+        "memory_pct": 11.3,
+        "error_rate_pct": 0.0,
+        "throughput": 16.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 8.4,
+        "p99_ms": 13.9,
+        "cpu_pct": 2.5,
+        "memory_pct": 13.0,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 64,
+        "p95_ms": 13.3,
+        "p99_ms": 19.0,
+        "cpu_pct": 3.9,
+        "memory_pct": 16.1,
+        "error_rate_pct": 0.0,
+        "throughput": 64.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 96,
+        "p95_ms": 23.9,
+        "p99_ms": 33.5,
+        "cpu_pct": 5.0,
+        "memory_pct": 18.9,
+        "error_rate_pct": 0.0,
+        "throughput": 96.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 104,
+        "p95_ms": 28.1,
+        "p99_ms": 39.2,
+        "cpu_pct": 5.2,
+        "memory_pct": 19.3,
+        "error_rate_pct": 0.5,
+        "throughput": 100.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 112,
+        "p95_ms": 23.0,
+        "p99_ms": 37.7,
+        "cpu_pct": 5.5,
+        "memory_pct": 19.3,
+        "error_rate_pct": 1.48,
+        "throughput": 100.0,
+        "verdict": "error_rate"
+      },
+      {
+        "users": 128,
+        "p95_ms": 29.8,
+        "p99_ms": 47.3,
+        "cpu_pct": 6.0,
+        "memory_pct": 19.5,
+        "error_rate_pct": 2.72,
+        "throughput": 100.0,
+        "verdict": "error_rate"
+      }
+    ]
   }
 ]
