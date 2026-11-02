@@ -106,6 +106,12 @@ The build time of each step is printed in the job summary. Analytics queries rea
 `gold.mart_*`; point lookups read indexed `silver.*` tables. The database grows to
 about 1.2 GB because the three layers keep raw, cleaned and modeled data.
 
+`gold.fact_consultation` and `gold.fact_prescription` are partitioned by year on
+`date_key`. Query 13 counts one year directly on the fact table and its plan shows a
+single yearly partition, the others are pruned. DuckDB has no table partitioning; the
+optimized branch copies the partitioned parent into one columnar table and relies on
+zone maps.
+
 ## What a user does
 
 One user sends **one request per second** (60 requests per minute), drawing from a
