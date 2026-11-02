@@ -2012,5 +2012,121 @@
         "verdict": "rate_limit"
       }
     ]
+  },
+  {
+    "commit": "736ff3aadf8d7ce9c1b42beed7de55425b147824",
+    "commit_message": "Postgres: 300 server connections, max_connections 350",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-11-02T18:08:48Z",
+    "max_users": 3072,
+    "break_users": 3328,
+    "interval_pct": 8.3,
+    "reason": "p95",
+    "reason_text": "response time too slow (p95)",
+    "cpu_pct": 30.3,
+    "memory_pct": 5.2,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 6.0,
+        "p99_ms": 7.2,
+        "cpu_pct": 1.0,
+        "memory_pct": 0.9,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 8.3,
+        "p99_ms": 9.8,
+        "cpu_pct": 1.0,
+        "memory_pct": 1.1,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 15.1,
+        "p99_ms": 16.2,
+        "cpu_pct": 2.8,
+        "memory_pct": 1.6,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 76.1,
+        "p99_ms": 82.2,
+        "cpu_pct": 7.6,
+        "memory_pct": 2.1,
+        "error_rate_pct": 0.0,
+        "throughput": 512.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 1024,
+        "p95_ms": 131.9,
+        "p99_ms": 143.5,
+        "cpu_pct": 11.8,
+        "memory_pct": 2.4,
+        "error_rate_pct": 0.0,
+        "throughput": 1024.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 2048,
+        "p95_ms": 329.7,
+        "p99_ms": 372.2,
+        "cpu_pct": 19.3,
+        "memory_pct": 3.1,
+        "error_rate_pct": 0.0,
+        "throughput": 1911.8,
+        "verdict": "pass"
+      },
+      {
+        "users": 3072,
+        "p95_ms": 476.3,
+        "p99_ms": 568.8,
+        "cpu_pct": 30.1,
+        "memory_pct": 4.7,
+        "error_rate_pct": 0.0,
+        "throughput": 2612.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 3328,
+        "p95_ms": 507.1,
+        "p99_ms": 567.4,
+        "cpu_pct": 30.3,
+        "memory_pct": 5.2,
+        "error_rate_pct": 0.0,
+        "throughput": 2764.4,
+        "verdict": "p95"
+      },
+      {
+        "users": 3584,
+        "p95_ms": 545.6,
+        "p99_ms": 612.1,
+        "cpu_pct": 30.8,
+        "memory_pct": 5.0,
+        "error_rate_pct": 0.0,
+        "throughput": 2867.2,
+        "verdict": "p95"
+      },
+      {
+        "users": 4096,
+        "p95_ms": 687.4,
+        "p99_ms": 758.4,
+        "cpu_pct": 36.2,
+        "memory_pct": 4.2,
+        "error_rate_pct": 0.0,
+        "throughput": 3276.8,
+        "verdict": "p95"
+      }
+    ]
   }
 ]
