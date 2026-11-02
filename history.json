@@ -1896,5 +1896,121 @@
         "verdict": "rate_limit"
       }
     ]
+  },
+  {
+    "commit": "2390089ff4cf3179299eaf0afa98825ebc1edb31",
+    "commit_message": "DuckDB: ART indexes on silver lookups, threads=1",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-11-02T17:54:46Z",
+    "max_users": 1024,
+    "break_users": 1088,
+    "interval_pct": 6.2,
+    "reason": "rate_limit",
+    "reason_text": "load generator could not sustain the request rate",
+    "cpu_pct": 75.5,
+    "memory_pct": 37.2,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 7.2,
+        "p99_ms": 10.2,
+        "cpu_pct": 1.3,
+        "memory_pct": 6.3,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 23.5,
+        "p99_ms": 31.1,
+        "cpu_pct": 2.9,
+        "memory_pct": 7.9,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 97.6,
+        "p99_ms": 124.9,
+        "cpu_pct": 9.6,
+        "memory_pct": 11.5,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 38.7,
+        "p99_ms": 96.8,
+        "cpu_pct": 43.7,
+        "memory_pct": 24.8,
+        "error_rate_pct": 0.0,
+        "throughput": 512.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 1024,
+        "p95_ms": 133.4,
+        "p99_ms": 191.4,
+        "cpu_pct": 72.3,
+        "memory_pct": 38.6,
+        "error_rate_pct": 0.0,
+        "throughput": 877.6,
+        "verdict": "pass"
+      },
+      {
+        "users": 1088,
+        "p95_ms": 189.3,
+        "p99_ms": 268.7,
+        "cpu_pct": 75.5,
+        "memory_pct": 37.2,
+        "error_rate_pct": 0.0,
+        "throughput": 863.4,
+        "verdict": "rate_limit"
+      },
+      {
+        "users": 1152,
+        "p95_ms": 226.4,
+        "p99_ms": 335.8,
+        "cpu_pct": 74.7,
+        "memory_pct": 38.0,
+        "error_rate_pct": 0.0,
+        "throughput": 862.6,
+        "verdict": "rate_limit"
+      },
+      {
+        "users": 1280,
+        "p95_ms": 225.0,
+        "p99_ms": 336.3,
+        "cpu_pct": 75.5,
+        "memory_pct": 37.9,
+        "error_rate_pct": 0.0,
+        "throughput": 847.0,
+        "verdict": "rate_limit"
+      },
+      {
+        "users": 1536,
+        "p95_ms": 219.0,
+        "p99_ms": 337.0,
+        "cpu_pct": 75.7,
+        "memory_pct": 38.3,
+        "error_rate_pct": 0.0,
+        "throughput": 857.8,
+        "verdict": "rate_limit"
+      },
+      {
+        "users": 2048,
+        "p95_ms": 170.2,
+        "p99_ms": 260.1,
+        "cpu_pct": 77.1,
+        "memory_pct": 37.6,
+        "error_rate_pct": 0.0,
+        "throughput": 857.2,
+        "verdict": "rate_limit"
+      }
+    ]
   }
 ]
