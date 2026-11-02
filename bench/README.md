@@ -106,11 +106,13 @@ The build time of each step is printed in the job summary. Analytics queries rea
 `gold.mart_*`; point lookups read indexed `silver.*` tables. The database grows to
 about 1.2 GB because the three layers keep raw, cleaned and modeled data.
 
-`gold.fact_consultation` and `gold.fact_prescription` are partitioned by year on
-`date_key`. Query 13 counts one year directly on the fact table and its plan shows a
-single yearly partition, the others are pruned. DuckDB has no table partitioning; the
-optimized branch copies the partitioned parent into one columnar table and relies on
-zone maps.
+`gold.fact_consultation` is range-partitioned by year on `date_key` and each year is
+hash-bucketed by `patient_key` into 8 buckets. `gold.fact_prescription` is partitioned
+by year only. Query 13 counts one year and reads the 8 buckets of that year; query 14
+counts one patient and reads one bucket per year (9 leaves) instead of the whole fact.
+The trade-off is visible: a year scan touches 8 buckets, a patient scan touches 1/8 of
+the data. DuckDB has no table partitioning; the optimized branch copies the parent
+into one columnar table and relies on zone maps.
 
 ## What a user does
 

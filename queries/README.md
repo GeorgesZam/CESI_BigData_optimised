@@ -22,7 +22,8 @@ name is the file name without its numeric prefix.
 | 10 | `consultations_of_one_patient` | Point lookup on the foreign key `Consultation.Id_patient` | 800 ms |
 | 11 | `prescriptions_of_one_consultation` | Point lookup on the foreign key `Prescription.Num_consultation` | 800 ms |
 | 12 | `medicament_search` | Free-text `ILIKE` search on medicament labels | 1200 ms |
-| 13 | `fact_consultations_per_year` | Count one year directly on the partitioned gold fact; the planner prunes to one yearly partition | 1500 ms |
+| 13 | `fact_consultations_per_year` | Count one year directly on the partitioned gold fact; the planner prunes to the 8 buckets of that year | 1500 ms |
+| 14 | `fact_consultations_of_patient` | Count one patient on the bucketed gold fact; the planner reads one hash bucket per year | 1500 ms |
 
 Queries 01 to 08 cover reporting and analytics. Queries 09 to 12 cover application
 screens: patient record, consultation history, prescription detail, drug search.
