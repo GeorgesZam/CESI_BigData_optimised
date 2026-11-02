@@ -448,5 +448,121 @@
         "verdict": "p95"
       }
     ]
+  },
+  {
+    "commit": "2780ce1715d281411b260073fb4a3485a04ccea5",
+    "commit_message": "Pre-aggregate fact tables before dimension joins (03, 05, 07)",
+    "branch": "optimized",
+    "engine": "duckdb",
+    "date": "2026-11-02T13:35:02Z",
+    "max_users": 480,
+    "break_users": 512,
+    "interval_pct": 6.7,
+    "reason": "cpu",
+    "reason_text": "CPU saturated",
+    "cpu_pct": 90.8,
+    "memory_pct": 44.0,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": 11.9,
+        "p99_ms": 21.9,
+        "cpu_pct": 1.6,
+        "memory_pct": 7.3,
+        "error_rate_pct": 0.0,
+        "throughput": 8.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 16,
+        "p95_ms": 16.4,
+        "p99_ms": 24.9,
+        "cpu_pct": 3.3,
+        "memory_pct": 10.4,
+        "error_rate_pct": 0.0,
+        "throughput": 16.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 32,
+        "p95_ms": 25.5,
+        "p99_ms": 43.2,
+        "cpu_pct": 6.1,
+        "memory_pct": 12.1,
+        "error_rate_pct": 0.0,
+        "throughput": 32.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 64,
+        "p95_ms": 51.7,
+        "p99_ms": 99.2,
+        "cpu_pct": 11.7,
+        "memory_pct": 14.9,
+        "error_rate_pct": 0.0,
+        "throughput": 64.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 128,
+        "p95_ms": 112.0,
+        "p99_ms": 185.0,
+        "cpu_pct": 23.0,
+        "memory_pct": 20.5,
+        "error_rate_pct": 0.0,
+        "throughput": 128.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 256,
+        "p95_ms": 79.9,
+        "p99_ms": 198.2,
+        "cpu_pct": 47.7,
+        "memory_pct": 29.0,
+        "error_rate_pct": 0.0,
+        "throughput": 256.0,
+        "verdict": "pass"
+      },
+      {
+        "users": 384,
+        "p95_ms": 70.7,
+        "p99_ms": 177.2,
+        "cpu_pct": 71.2,
+        "memory_pct": 33.3,
+        "error_rate_pct": 0.0,
+        "throughput": 378.2,
+        "verdict": "pass"
+      },
+      {
+        "users": 448,
+        "p95_ms": 72.3,
+        "p99_ms": 173.7,
+        "cpu_pct": 80.9,
+        "memory_pct": 35.3,
+        "error_rate_pct": 0.0,
+        "throughput": 436.4,
+        "verdict": "pass"
+      },
+      {
+        "users": 480,
+        "p95_ms": 99.1,
+        "p99_ms": 200.7,
+        "cpu_pct": 86.2,
+        "memory_pct": 40.1,
+        "error_rate_pct": 0.0,
+        "throughput": 459.2,
+        "verdict": "pass"
+      },
+      {
+        "users": 512,
+        "p95_ms": 133.3,
+        "p99_ms": 266.2,
+        "cpu_pct": 90.8,
+        "memory_pct": 44.0,
+        "error_rate_pct": 0.0,
+        "throughput": 486.1,
+        "verdict": "cpu"
+      }
+    ]
   }
 ]
