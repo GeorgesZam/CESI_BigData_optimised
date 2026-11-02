@@ -978,5 +978,31 @@
         "verdict": "connections"
       }
     ]
+  },
+  {
+    "commit": "bc372a13076766577ee2957aa3b38c1c139c5f96",
+    "commit_message": "PgBouncer connection pooling (50 server connections)",
+    "branch": "main",
+    "engine": "postgres",
+    "date": "2026-11-02T14:40:57Z",
+    "max_users": 0,
+    "break_users": 8,
+    "interval_pct": null,
+    "reason": "server_unreachable",
+    "reason_text": "server stopped answering",
+    "cpu_pct": 0.0,
+    "memory_pct": 10.0,
+    "levels": [
+      {
+        "users": 8,
+        "p95_ms": null,
+        "p99_ms": null,
+        "cpu_pct": 0.0,
+        "memory_pct": 10.0,
+        "error_rate_pct": 100.0,
+        "throughput": 0.0,
+        "verdict": "server_unreachable"
+      }
+    ]
   }
 ]
