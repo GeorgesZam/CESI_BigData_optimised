@@ -69,6 +69,13 @@ def main() -> int:
                 f"CREATE OR REPLACE TABLE {schema}.{table} AS "
                 f"SELECT * FROM pg.{schema}.{table}"
             )
+    for statement in (
+        "CREATE INDEX silver_patient_num_secu_idx ON silver.patient (num_secu)",
+        "CREATE INDEX silver_consultation_patient_idx ON silver.consultation (id_patient)",
+        "CREATE INDEX silver_prescription_consultation_idx ON silver.prescription (num_consultation)",
+        "CREATE INDEX silver_medicament_cis_idx ON silver.medicament (code_cis)",
+    ):
+        connection.execute(statement)
     connection.execute("DETACH pg")
     rows = connection.execute("SELECT count(*) FROM gold.fact_consultation").fetchone()[0]
     marts = connection.execute("SELECT count(*) FROM gold.mart_consultations_per_month").fetchone()[0]
