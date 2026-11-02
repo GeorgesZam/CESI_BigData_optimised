@@ -61,7 +61,7 @@ The stress job adds `--memory=2g --memory-swap=2g`, so memory exhaustion is a
 possible failure mode. The dump is restored with
 `pg_restore -j 4 --no-owner --no-privileges --exit-on-error`.
 
-The stress job also runs PgBouncer on port 6432 in transaction mode: up to 3000
+The stress job also runs PgBouncer on port 6543 in transaction mode: up to 3000
 client connections share 50 server connections. The stress client connects through
 the pooler, so PostgreSQL's default `max_connections = 100` is no longer the limit.
 The benchmark job keeps a direct connection, because it measures query latency, not
