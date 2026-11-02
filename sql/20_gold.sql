@@ -49,37 +49,79 @@ SELECT id_mut, nom
 FROM silver.mutuelle;
 ALTER TABLE gold.dim_mutuelle ADD PRIMARY KEY (id_mut);
 
-CREATE TABLE gold.fact_consultation AS
+CREATE TABLE gold.fact_consultation (
+    num_consultation integer NOT NULL,
+    date_key date NOT NULL,
+    patient_key integer NOT NULL,
+    prof_key text NOT NULL,
+    mutuelle_key integer NOT NULL,
+    diag_key text NOT NULL,
+    duration_minutes numeric(8,2),
+    PRIMARY KEY (num_consultation, date_key)
+) PARTITION BY RANGE (date_key);
+
+CREATE TABLE gold.fact_consultation_2015 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2015-01-01') TO ('2016-01-01');
+CREATE TABLE gold.fact_consultation_2016 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2016-01-01') TO ('2017-01-01');
+CREATE TABLE gold.fact_consultation_2017 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2017-01-01') TO ('2018-01-01');
+CREATE TABLE gold.fact_consultation_2018 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2018-01-01') TO ('2019-01-01');
+CREATE TABLE gold.fact_consultation_2019 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2019-01-01') TO ('2020-01-01');
+CREATE TABLE gold.fact_consultation_2020 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2020-01-01') TO ('2021-01-01');
+CREATE TABLE gold.fact_consultation_2021 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2021-01-01') TO ('2022-01-01');
+CREATE TABLE gold.fact_consultation_2022 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2022-01-01') TO ('2023-01-01');
+CREATE TABLE gold.fact_consultation_2023 PARTITION OF gold.fact_consultation FOR VALUES FROM ('2023-01-01') TO ('2024-01-01');
+CREATE TABLE gold.fact_consultation_default PARTITION OF gold.fact_consultation DEFAULT;
+
+INSERT INTO gold.fact_consultation
 SELECT
     num_consultation,
-    consultation_date AS date_key,
-    id_patient AS patient_key,
-    id_prof_sante AS prof_key,
-    id_mut AS mutuelle_key,
-    code_diag AS diag_key,
+    consultation_date,
+    id_patient,
+    id_prof_sante,
+    id_mut,
+    code_diag,
     duration_minutes
 FROM silver.consultation;
-ALTER TABLE gold.fact_consultation ADD PRIMARY KEY (num_consultation);
+
 ALTER TABLE gold.fact_consultation
     ADD CONSTRAINT fact_consultation_date_fkey FOREIGN KEY (date_key) REFERENCES gold.dim_date (date_key),
     ADD CONSTRAINT fact_consultation_patient_fkey FOREIGN KEY (patient_key) REFERENCES gold.dim_patient (patient_id),
     ADD CONSTRAINT fact_consultation_prof_fkey FOREIGN KEY (prof_key) REFERENCES gold.dim_professionnel (prof_id),
     ADD CONSTRAINT fact_consultation_mutuelle_fkey FOREIGN KEY (mutuelle_key) REFERENCES gold.dim_mutuelle (id_mut),
     ADD CONSTRAINT fact_consultation_diag_fkey FOREIGN KEY (diag_key) REFERENCES gold.dim_diagnostic (code_diag);
+
 CREATE INDEX fact_consultation_date_idx ON gold.fact_consultation (date_key);
 CREATE INDEX fact_consultation_patient_idx ON gold.fact_consultation (patient_key);
 CREATE INDEX fact_consultation_prof_idx ON gold.fact_consultation (prof_key);
 CREATE INDEX fact_consultation_mutuelle_idx ON gold.fact_consultation (mutuelle_key);
 CREATE INDEX fact_consultation_diag_idx ON gold.fact_consultation (diag_key);
 
-CREATE TABLE gold.fact_prescription AS
-SELECT prescription_id, num_consultation, code_cis AS medicament_key
-FROM silver.prescription;
-ALTER TABLE gold.fact_prescription ADD PRIMARY KEY (prescription_id);
+CREATE TABLE gold.fact_prescription (
+    prescription_id bigint NOT NULL,
+    num_consultation integer NOT NULL,
+    date_key date NOT NULL,
+    medicament_key text NOT NULL,
+    PRIMARY KEY (prescription_id, date_key)
+) PARTITION BY RANGE (date_key);
+
+CREATE TABLE gold.fact_prescription_2015 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2015-01-01') TO ('2016-01-01');
+CREATE TABLE gold.fact_prescription_2016 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2016-01-01') TO ('2017-01-01');
+CREATE TABLE gold.fact_prescription_2017 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2017-01-01') TO ('2018-01-01');
+CREATE TABLE gold.fact_prescription_2018 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2018-01-01') TO ('2019-01-01');
+CREATE TABLE gold.fact_prescription_2019 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2019-01-01') TO ('2020-01-01');
+CREATE TABLE gold.fact_prescription_2020 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2020-01-01') TO ('2021-01-01');
+CREATE TABLE gold.fact_prescription_2021 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2021-01-01') TO ('2022-01-01');
+CREATE TABLE gold.fact_prescription_2022 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2022-01-01') TO ('2023-01-01');
+CREATE TABLE gold.fact_prescription_2023 PARTITION OF gold.fact_prescription FOR VALUES FROM ('2023-01-01') TO ('2024-01-01');
+CREATE TABLE gold.fact_prescription_default PARTITION OF gold.fact_prescription DEFAULT;
+
+INSERT INTO gold.fact_prescription
+SELECT p.prescription_id, p.num_consultation, c.consultation_date, p.code_cis
+FROM silver.prescription p
+JOIN silver.consultation c ON c.num_consultation = p.num_consultation;
+
 ALTER TABLE gold.fact_prescription
-    ADD CONSTRAINT fact_prescription_consultation_fkey FOREIGN KEY (num_consultation) REFERENCES gold.fact_consultation (num_consultation),
     ADD CONSTRAINT fact_prescription_medicament_fkey FOREIGN KEY (medicament_key) REFERENCES gold.dim_medicament (code_cis);
-CREATE INDEX fact_prescription_consultation_idx ON gold.fact_prescription (num_consultation);
+CREATE INDEX fact_prescription_consultation_idx ON gold.fact_prescription (num_consultation, date_key);
 CREATE INDEX fact_prescription_medicament_idx ON gold.fact_prescription (medicament_key);
 
 CREATE TABLE gold.mart_consultations_per_month AS
