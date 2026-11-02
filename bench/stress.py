@@ -39,6 +39,7 @@ REASONS = {
     "memory": "memory saturated",
     "cpu": "CPU saturated",
     "error_rate": "too many errors",
+    "connections": "connection limit reached",
     "p95": "response time too slow (p95)",
     "p99": "response time too slow (p99)",
     "none": "no failure",
@@ -105,7 +106,11 @@ async def worker(dsn, deck, offset, deadline, think_time, latencies, errors):
     try:
         conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True, connect_timeout=5)
     except Exception as exc:
-        errors.append(f"connect:{type(exc).__name__}")
+        message = str(exc).lower()
+        if "too many clients" in message or "connection slots" in message:
+            errors.append("connections")
+        else:
+            errors.append(f"connect:{type(exc).__name__}")
         return
     try:
         await conn.execute("SET jit = off")
@@ -208,6 +213,8 @@ def failure_reason(level: dict, stress: dict) -> str:
     cpu = level.get("cpu_avg_pct")
     if cpu is not None and cpu >= stress["max_cpu_pct"]:
         return "cpu"
+    if "connections" in level["errors_sample"]:
+        return "connections"
     if level["error_rate_pct"] > stress["max_error_rate_pct"]:
         return "error_rate"
     if level["p95_ms"] is not None and level["p95_ms"] > stress["p95_ms"]:
