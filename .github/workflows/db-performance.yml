@@ -174,21 +174,6 @@ jobs:
           --health-timeout 5s
           --health-retries 20
 
-      pgbouncer:
-        image: edoburu/pgbouncer:latest
-        env:
-          DB_HOST: postgres
-          DB_PORT: "5432"
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: cesi
-          POOL_MODE: transaction
-          MAX_CLIENT_CONN: "3000"
-          DEFAULT_POOL_SIZE: "50"
-          AUTH_TYPE: trust
-        ports:
-          - 6432:6432
-
     env:
       PGHOST: localhost
       PGPORT: 5432
@@ -245,15 +230,35 @@ jobs:
           echo "PG_CONTAINER=$container" >> "$GITHUB_ENV"
           echo "container: $container"
 
-      - name: Wait for PgBouncer
+      - name: Start PgBouncer
         run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pgbouncer
+          cat > /tmp/pgbouncer.ini <<'EOF'
+          [databases]
+          cesi = host=127.0.0.1 port=5432 dbname=cesi
+          [pgbouncer]
+          listen_addr = 127.0.0.1
+          listen_port = 6432
+          auth_type = trust
+          auth_file = /tmp/userlist.txt
+          pool_mode = transaction
+          max_client_conn = 3000
+          default_pool_size = 50
+          logfile = /tmp/pgbouncer.log
+          pidfile = /tmp/pgbouncer.pid
+          EOF
+          printf '"postgres" ""\n' > /tmp/userlist.txt
+          pgbouncer -d /tmp/pgbouncer.ini
           for attempt in $(seq 1 30); do
-            if pg_isready -h localhost -p 6432 -U postgres -d cesi; then
+            if pg_isready -h 127.0.0.1 -p 6432 -U postgres -d cesi; then
               exit 0
             fi
             sleep 1
           done
           echo "::error::PgBouncer did not become ready"
+          cat /tmp/pgbouncer.log || true
           exit 1
 
       - name: Run the stress test
