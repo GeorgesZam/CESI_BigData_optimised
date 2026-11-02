@@ -48,6 +48,7 @@
     },
     "refine_tolerance_pct": 10,
     "refine_max_probes": 6,
-    "refine_duration_seconds": 8
+    "refine_duration_seconds": 8,
+    "duckdb_connections": 90
   }
 }
