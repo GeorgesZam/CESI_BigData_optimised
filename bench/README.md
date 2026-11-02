@@ -14,9 +14,11 @@ layer. The measurement itself does not change data, indexes or queries.
 
 On the optimized branch, each virtual user gets its own thread and its own read-only
 DuckDB connection, with no pool or thread cap. DuckDB's buffer manager caches the
-database file in the same process, with `memory_limit=2GB` and the default 4 threads.
-This maximises the number of users a single process can drive, at the cost of a
-higher client CPU than PgBouncer's pooled model.
+database file in the same process, with `memory_limit=2GB`. The DuckDB file carries
+ART indexes on the silver point-lookup columns (`num_secu`, `id_patient`,
+`num_consultation`, `code_cis`), and each connection runs with `threads=1`: small
+marts do not need per-query parallelism, and single-threaded execution roughly halves
+CPU at high concurrency.
 
 ## Files
 

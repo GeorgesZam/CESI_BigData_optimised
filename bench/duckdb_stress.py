@@ -60,6 +60,7 @@ def worker(db, deck, offset, deadline, think_time, memory_limit, latencies, erro
     try:
         connection = duckdb.connect(db, read_only=True)
         connection.execute(f"SET memory_limit='{memory_limit}'")
+        connection.execute("SET threads=1")
     except Exception as exc:
         with lock:
             errors.append(f"connect:{type(exc).__name__}")
